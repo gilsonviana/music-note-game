@@ -25,8 +25,8 @@ const main = (debug = false) => {
     OBSTACLE_SPEED: 150, // pixels per second (moving left)
     OBSTACLE_SPAWN_INTERVAL: 2, // seconds between spawning obstacles
     OBSTACLE_SPAWN_Y: 5, // Grid Y position where obstacles spawn
-    COLLISION_POINTS_LOST: -25, // Points lost on collision
-    AVOIDANCE_POINTS_GAINED: 150, // Points gained for avoiding an obstacle
+    COLLISION_POINTS_GAINED: 100, // Points gained on collision
+    MISS_POINTS_LOST: -50, // Points lost for missing an obstacle
   };
 
   // Input state
@@ -87,17 +87,17 @@ const main = (debug = false) => {
       this.current += points;
     },
     /**
-     * Check if player has avoided an obstacle
+     * Check if player has missed an obstacle
      */
-    checkAvoidance(obstacle) {
-      // If obstacle has passed the left edge and hasn't been registered
+    checkMiss(obstacle) {
+      // If obstacle has passed the left edge and hasn't been hit
       if (
         obstacle.pixelX < 0 &&
         !obstacle.hasBeenAvoided &&
         !obstacle.hasCollided
       ) {
         obstacle.hasBeenAvoided = true;
-        this.addPoints(CONFIG.AVOIDANCE_POINTS_GAINED);
+        this.addPoints(CONFIG.MISS_POINTS_LOST);
         return true;
       }
       return false;
@@ -106,7 +106,7 @@ const main = (debug = false) => {
      * Register a collision with an obstacle
      */
     collision() {
-      this.addPoints(CONFIG.COLLISION_POINTS_LOST);
+      this.addPoints(CONFIG.COLLISION_POINTS_GAINED);
     },
   };
 
@@ -149,39 +149,6 @@ const main = (debug = false) => {
         score.collision();
       }
     });
-  };
-
-  /**
-   * Try to push an obstacle in a direction
-   * @param {object} obstacle - The obstacle to push
-   * @param {number} dirX - Direction X (-1, 0, or 1)
-   * @param {number} dirY - Direction Y (-1, 0, or 1)
-   * @returns {boolean} - True if push was successful
-   */
-  const pushObstacle = (obstacle, dirX, dirY) => {
-    const newX = obstacle.pixelX + dirX * CONFIG.GRID_SIZE;
-    const newY = obstacle.pixelY + dirY * CONFIG.GRID_SIZE;
-
-    // Check bounds
-    const maxPixelX = canvas.width - CONFIG.PLAYER_SIZE;
-    const maxPixelY = canvas.height - CONFIG.PLAYER_SIZE;
-
-    if (newX < 0 || newX > maxPixelX || newY < 0 || newY > maxPixelY) {
-      return false; // Out of bounds
-    }
-
-    // Check if target position is blocked by another obstacle
-    const targetGridX = Math.round(newX / CONFIG.GRID_SIZE);
-    const targetGridY = Math.round(newY / CONFIG.GRID_SIZE);
-
-    if (getObstacleAt(targetGridX, targetGridY)) {
-      return false; // Another obstacle is in the way
-    }
-
-    // Push the obstacle
-    obstacle.pixelX = newX;
-    obstacle.pixelY = newY;
-    return true;
   };
 
   // Player object
@@ -253,8 +220,8 @@ const main = (debug = false) => {
     // Update obstacle positions
     obstacles.forEach((obs) => {
       obs.pixelX -= obs.speed * delta; // Move left
-      // Check for avoidance
-      score.checkAvoidance(obs);
+      // Check if player missed the obstacle
+      score.checkMiss(obs);
     });
 
     // Remove obstacles that went off-screen
