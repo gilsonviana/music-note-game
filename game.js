@@ -20,13 +20,14 @@ const main = (debug = false) => {
     GRID_SIZE: 32, // Size of each grid cell in pixels
     PLAYER_SIZE: 32,
     MOVE_SPEED: 0.15, // Seconds to move one grid cell
-    PLAYER_INITIAL_GRID_X: 9,
+    PLAYER_INITIAL_GRID_X: 4,
     PLAYER_INITIAL_GRID_Y: 7,
     OBSTACLE_SPEED: 150, // pixels per second (moving left)
     OBSTACLE_SPAWN_INTERVAL: 2, // seconds between spawning obstacles
     OBSTACLE_SPAWN_Y: 5, // Grid Y position where obstacles spawn
     COLLISION_POINTS_GAINED: 100, // Points gained on collision
     MISS_POINTS_LOST: -50, // Points lost for missing an obstacle
+    ENABLE_X_AXIS_MOVEMENT: false, // Enable/disable left-right movement
   };
 
   // Input state
@@ -264,10 +265,10 @@ const main = (debug = false) => {
         const maxPixelY = canvas.height - CONFIG.PLAYER_SIZE;
         newPixelY = Math.min(maxPixelY, player.pixelY + HALF_GRID);
         isMoving = true;
-      } else if (input.left) {
+      } else if (input.left && CONFIG.ENABLE_X_AXIS_MOVEMENT) {
         newPixelX = Math.max(0, player.pixelX - HALF_GRID);
         isMoving = true;
-      } else if (input.right) {
+      } else if (input.right && CONFIG.ENABLE_X_AXIS_MOVEMENT) {
         const maxPixelX = canvas.width - CONFIG.PLAYER_SIZE;
         newPixelX = Math.min(maxPixelX, player.pixelX + HALF_GRID);
         isMoving = true;
