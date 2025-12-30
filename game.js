@@ -90,10 +90,10 @@ const main = (debug = false) => {
     /**
      * Check if player has missed an obstacle
      */
-    checkMiss(obstacle) {
-      // If obstacle has passed the left edge and hasn't been hit
+    checkMiss(obstacle, playerX) {
+      // If obstacle has passed the player's position and hasn't been hit
       if (
-        obstacle.pixelX < 0 &&
+        obstacle.pixelX < playerX &&
         !obstacle.hasBeenAvoided &&
         !obstacle.hasCollided
       ) {
@@ -222,7 +222,7 @@ const main = (debug = false) => {
     obstacles.forEach((obs) => {
       obs.pixelX -= obs.speed * delta; // Move left
       // Check if player missed the obstacle
-      score.checkMiss(obs);
+      score.checkMiss(obs, player.pixelX);
     });
 
     // Remove obstacles that went off-screen
