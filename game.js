@@ -360,7 +360,7 @@ const main = (debug = false) => {
         ctx.lineTo(x, canvas.height);
         ctx.stroke();
       }
-      for (let y = 0; y <= canvas.height; y += CONFIG.GRID_SIZE) {
+      for (let y = CONFIG.GRID_SIZE / 2; y <= canvas.height; y += CONFIG.GRID_SIZE) {
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(canvas.width, y);
