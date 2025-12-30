@@ -130,6 +130,55 @@ const main = (debug = false) => {
   };
 
   /**
+   * Audio system for playing musical notes
+   */
+  const audio = {
+    context: null,
+
+    // Musical notes mapped to grid Y positions (5-9)
+    // Using standard musical staff notes: E, D, C, B, A
+    noteFrequencies: {
+      5: 329.63, // E4
+      6: 293.66, // D4
+      7: 261.63, // C4 (Middle C)
+      8: 246.94, // B3
+      9: 220.00, // A3
+    },
+
+    init() {
+      // Create audio context on first user interaction
+      if (!this.context) {
+        this.context = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    },
+
+    playNote(gridY, duration = 0.2) {
+      if (!this.context) return;
+
+      const frequency = this.noteFrequencies[gridY] || 261.63; // Default to C4
+
+      // Create oscillator
+      const oscillator = this.context.createOscillator();
+      const gainNode = this.context.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(this.context.destination);
+
+      oscillator.frequency.value = frequency;
+      oscillator.type = 'sine'; // Use sine wave for a pure tone
+
+      // Envelope for smoother sound
+      const now = this.context.currentTime;
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(0.3, now + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+      oscillator.start(now);
+      oscillator.stop(now + duration);
+    },
+  };
+
+  /**
    * Check if player is currently colliding with any obstacle
    */
   const checkPlayerCollisions = () => {
@@ -148,6 +197,10 @@ const main = (debug = false) => {
       if (collision && !obs.hasCollided) {
         obs.hasCollided = true;
         score.collision();
+
+        // Play the musical note corresponding to the obstacle's Y position
+        const obstacleGridY = Math.round(obs.pixelY / CONFIG.GRID_SIZE);
+        audio.playNote(obstacleGridY);
       }
     });
   };
@@ -584,6 +637,9 @@ const main = (debug = false) => {
 
     // Setup input handlers
     setupInputHandlers();
+
+    // Initialize audio context
+    audio.init();
 
     console.log("Game initialized successfully");
     return true;
