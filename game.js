@@ -41,8 +41,8 @@ const main = (debug = false) => {
   const movement = {
     isMoving: false,
     moveProgress: 0, // 0 to 1, how far through current move we are
-    nextGridX: null,
-    nextGridY: null,
+    nextPixelX: null,
+    nextPixelY: null,
   };
 
   // Key to action mapping
@@ -187,27 +187,31 @@ const main = (debug = false) => {
   // Player object
   const player = {
     color: '#4CAF50',
-    gridX: CONFIG.PLAYER_INITIAL_GRID_X,
-    gridY: CONFIG.PLAYER_INITIAL_GRID_Y,
+    pixelX: CONFIG.PLAYER_INITIAL_GRID_X * CONFIG.GRID_SIZE,
+    pixelY: CONFIG.PLAYER_INITIAL_GRID_Y * CONFIG.GRID_SIZE,
     size: CONFIG.PLAYER_SIZE,
     imagePath: 'assets/MusicIcons/half-note.png',
     image: null,
-    // Get pixel position based on grid position and movement progress
+    // Get grid X (for compatibility)
+    get gridX() {
+      return Math.round(this.pixelX / CONFIG.GRID_SIZE);
+    },
+    // Get grid Y (for compatibility)
+    get gridY() {
+      return Math.round(this.pixelY / CONFIG.GRID_SIZE);
+    },
+    // Get pixel position based on movement progress
     getPixelX() {
-      if (movement.isMoving && movement.nextGridX !== null) {
-        const startPixel = this.gridX * CONFIG.GRID_SIZE;
-        const endPixel = movement.nextGridX * CONFIG.GRID_SIZE;
-        return startPixel + (endPixel - startPixel) * movement.moveProgress;
+      if (movement.isMoving && movement.nextPixelX !== null) {
+        return this.pixelX + (movement.nextPixelX - this.pixelX) * movement.moveProgress;
       }
-      return this.gridX * CONFIG.GRID_SIZE;
+      return this.pixelX;
     },
     getPixelY() {
-      if (movement.isMoving && movement.nextGridY !== null) {
-        const startPixel = this.gridY * CONFIG.GRID_SIZE;
-        const endPixel = movement.nextGridY * CONFIG.GRID_SIZE;
-        return startPixel + (endPixel - startPixel) * movement.moveProgress;
+      if (movement.isMoving && movement.nextPixelY !== null) {
+        return this.pixelY + (movement.nextPixelY - this.pixelY) * movement.moveProgress;
       }
-      return this.gridY * CONFIG.GRID_SIZE;
+      return this.pixelY;
     },
   };
 
@@ -255,11 +259,11 @@ const main = (debug = false) => {
       if (movement.moveProgress >= 1) {
         // Movement complete
         movement.moveProgress = 1;
-        player.gridX = movement.nextGridX;
-        player.gridY = movement.nextGridY;
+        player.pixelX = movement.nextPixelX;
+        player.pixelY = movement.nextPixelY;
         movement.isMoving = false;
-        movement.nextGridX = null;
-        movement.nextGridY = null;
+        movement.nextPixelX = null;
+        movement.nextPixelY = null;
       }
     }
 
@@ -268,37 +272,36 @@ const main = (debug = false) => {
 
     // Handle input to start new movement if not already moving
     if (!movement.isMoving) {
-      let newGridX = player.gridX;
-      let newGridY = player.gridY;
+      let newPixelX = player.pixelX;
+      let newPixelY = player.pixelY;
       let isMoving = false;
+      const HALF_GRID = CONFIG.GRID_SIZE / 2; // 16 pixels
 
       // Prioritize: no diagonal movement in grid-based games
       if (input.up) {
-        newGridY = Math.max(0, player.gridY - 1);
+        newPixelY = Math.max(0, player.pixelY - HALF_GRID);
         isMoving = true;
       } else if (input.down) {
-        const maxGridY = Math.floor(
-          (canvas.height - CONFIG.PLAYER_SIZE) / CONFIG.GRID_SIZE
-        );
-        newGridY = Math.min(maxGridY, player.gridY + 1);
+        const maxPixelY = canvas.height - CONFIG.PLAYER_SIZE;
+        newPixelY = Math.min(maxPixelY, player.pixelY + HALF_GRID);
         isMoving = true;
       } else if (input.left) {
-        newGridX = Math.max(0, player.gridX - 1);
+        newPixelX = Math.max(0, player.pixelX - HALF_GRID);
         isMoving = true;
       } else if (input.right) {
-        const maxGridX = Math.floor(
-          (canvas.width - CONFIG.PLAYER_SIZE) / CONFIG.GRID_SIZE
-        );
-        newGridX = Math.min(maxGridX, player.gridX + 1);
+        const maxPixelX = canvas.width - CONFIG.PLAYER_SIZE;
+        newPixelX = Math.min(maxPixelX, player.pixelX + HALF_GRID);
         isMoving = true;
       }
 
       // Start movement if input detected and position changed and not blocked
       if (
         isMoving &&
-        (newGridX !== player.gridX || newGridY !== player.gridY)
+        (newPixelX !== player.pixelX || newPixelY !== player.pixelY)
       ) {
-        const obstacle = getObstacleAt(newGridX, newGridY);
+        const targetGridX = Math.round(newPixelX / CONFIG.GRID_SIZE);
+        const targetGridY = Math.round(newPixelY / CONFIG.GRID_SIZE);
+        const obstacle = getObstacleAt(targetGridX, targetGridY);
 
         if (obstacle) {
           // There's an obstacle at the target position, check for collision
@@ -308,22 +311,22 @@ const main = (debug = false) => {
           }
 
           // Try to push it
-          const dirX = newGridX - player.gridX;
-          const dirY = newGridY - player.gridY;
+          const dirX = newPixelX > player.pixelX ? 1 : (newPixelX < player.pixelX ? -1 : 0);
+          const dirY = newPixelY > player.pixelY ? 1 : (newPixelY < player.pixelY ? -1 : 0);
 
           if (pushObstacle(obstacle, dirX, dirY)) {
             // Successfully pushed the obstacle, now move the player
             movement.isMoving = true;
             movement.moveProgress = 0;
-            movement.nextGridX = newGridX;
-            movement.nextGridY = newGridY;
+            movement.nextPixelX = newPixelX;
+            movement.nextPixelY = newPixelY;
           }
         } else {
           // No obstacle, move normally
           movement.isMoving = true;
           movement.moveProgress = 0;
-          movement.nextGridX = newGridX;
-          movement.nextGridY = newGridY;
+          movement.nextPixelX = newPixelX;
+          movement.nextPixelY = newPixelY;
         }
       }
     }
