@@ -215,6 +215,16 @@ const main = (debug = false) => {
     },
   };
 
+  // Treble clef object
+  const trebleClef = {
+    imagePath: 'assets/MusicIcons/treble-clef.png',
+    image: null,
+    x: 1 * CONFIG.GRID_SIZE, // Grid X position: 1
+    y: 5 * CONFIG.GRID_SIZE, // Grid Y position: 5
+    width: 2 * CONFIG.GRID_SIZE, // Width: 2 grid cells
+    height: (10 - 5) * CONFIG.GRID_SIZE, // Height from grid 5 to 10
+  };
+
   /**
    * Update game logic based on elapsed time
    * @param {number} delta - Time elapsed since last frame in seconds
@@ -225,9 +235,11 @@ const main = (debug = false) => {
     if (obstacleSpawner.timeSinceLastSpawn >= CONFIG.OBSTACLE_SPAWN_INTERVAL) {
       obstacleSpawner.timeSinceLastSpawn = 0;
       const imagePath = obstacleSpawner.getNextImage();
+      // Random Y position between grid 5 and 9 (inclusive)
+      const randomGridY = 5 + Math.floor(Math.random() * 5); // 5, 6, 7, 8, or 9
       const newObstacle = obstacleGenerator(
         canvas.width,
-        CONFIG.OBSTACLE_SPAWN_Y * CONFIG.GRID_SIZE,
+        randomGridY * CONFIG.GRID_SIZE,
         imagePath,
         CONFIG.OBSTACLE_SPEED
       );
@@ -351,6 +363,11 @@ const main = (debug = false) => {
       ctx.moveTo(0, y);
       ctx.lineTo(canvas.width, y);
       ctx.stroke();
+    }
+
+    // Draw treble clef at the beginning of the stave
+    if (trebleClef.image && trebleClef.image.complete) {
+      ctx.drawImage(trebleClef.image, trebleClef.x, trebleClef.y, trebleClef.width, trebleClef.height);
     }
 
     // Draw grid (optional, helpful for debugging)
@@ -532,6 +549,29 @@ const main = (debug = false) => {
   };
 
   /**
+   * Load treble clef image
+   */
+  const loadTrebleClefImage = async () => {
+    return new Promise((resolve) => {
+      if (!trebleClef.imagePath) {
+        resolve();
+        return;
+      }
+
+      const img = new Image();
+      img.src = trebleClef.imagePath;
+      img.onload = () => {
+        trebleClef.image = img;
+        resolve();
+      };
+      img.onerror = () => {
+        console.warn(`Failed to load treble clef image: ${trebleClef.imagePath}`);
+        resolve();
+      };
+    });
+  };
+
+  /**
    * Cache for loaded monster images
    */
   const imageCache = {};
@@ -563,6 +603,9 @@ const main = (debug = false) => {
 
     // Load player image
     await loadPlayerImage();
+
+    // Load treble clef image
+    await loadTrebleClefImage();
 
     // Preload all monster images for spawned obstacles
     await Promise.all(
