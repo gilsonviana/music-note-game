@@ -19,7 +19,7 @@ const main = (debug = false) => {
   const CONFIG = {
     GRID_SIZE: 32, // Size of each grid cell in pixels
     PLAYER_SIZE: 32,
-    MOVE_SPEED: 0.3, // Seconds to move one grid cell
+    MOVE_SPEED: 0.15, // Seconds to move one grid cell
     PLAYER_INITIAL_GRID_X: 9,
     PLAYER_INITIAL_GRID_Y: 7,
     OBSTACLE_SPEED: 150, // pixels per second (moving left)
@@ -306,7 +306,7 @@ const main = (debug = false) => {
         isMoving = true;
       }
 
-      // Start movement if input detected and position changed and not blocked
+      // Start movement if input detected and position changed
       if (
         isMoving &&
         (newPixelX !== player.pixelX || newPixelY !== player.pixelY)
@@ -316,30 +316,18 @@ const main = (debug = false) => {
         const obstacle = getObstacleAt(targetGridX, targetGridY);
 
         if (obstacle) {
-          // There's an obstacle at the target position, check for collision
+          // There's an obstacle at the target position, register collision
           if (!obstacle.hasCollided) {
             obstacle.hasCollided = true;
             score.collision();
           }
-
-          // Try to push it
-          const dirX = newPixelX > player.pixelX ? 1 : (newPixelX < player.pixelX ? -1 : 0);
-          const dirY = newPixelY > player.pixelY ? 1 : (newPixelY < player.pixelY ? -1 : 0);
-
-          if (pushObstacle(obstacle, dirX, dirY)) {
-            // Successfully pushed the obstacle, now move the player
-            movement.isMoving = true;
-            movement.moveProgress = 0;
-            movement.nextPixelX = newPixelX;
-            movement.nextPixelY = newPixelY;
-          }
-        } else {
-          // No obstacle, move normally
-          movement.isMoving = true;
-          movement.moveProgress = 0;
-          movement.nextPixelX = newPixelX;
-          movement.nextPixelY = newPixelY;
         }
+
+        // Move the player regardless of obstacles
+        movement.isMoving = true;
+        movement.moveProgress = 0;
+        movement.nextPixelX = newPixelX;
+        movement.nextPixelY = newPixelY;
       }
     }
   };
