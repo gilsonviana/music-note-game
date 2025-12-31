@@ -224,6 +224,8 @@ const main = (debug = false) => {
     isGameOver: false,
     isNoteKeyPressed: false, // Track if any note key is currently pressed
     currentNoteGridY: null, // Track the Y position of the currently pressed note
+    elapsedTime: 0, // Time elapsed since game started
+    difficulty: 1, // Current difficulty level (1-5)
   };
 
   // UI state
@@ -242,6 +244,33 @@ const main = (debug = false) => {
     muteButtonY: 420,
     muteButtonWidth: 100,
     muteButtonHeight: 40,
+  };
+
+  /**
+   * Calculate difficulty level based on elapsed time
+   * Difficulty increases gradually from 1 to 5
+   */
+  const calculateDifficulty = (elapsedTime) => {
+    // Increase difficulty every 30 seconds, max out at level 5
+    return Math.min(5, Math.floor(elapsedTime / 30) + 1);
+  };
+
+  /**
+   * Get the current spawn interval based on difficulty
+   * Lower interval = more frequent spawns = harder
+   */
+  const getSpawnInterval = (difficulty) => {
+    // Start at 2 seconds, decrease by 0.2 for each difficulty level
+    return Math.max(0.8, 2 - (difficulty - 1) * 0.2);
+  };
+
+  /**
+   * Get the current obstacle speed based on difficulty
+   * Higher speed = harder
+   */
+  const getObstacleSpeed = (difficulty) => {
+    // Start at 150 pixels/sec, increase by 30 for each difficulty level
+    return 150 + (difficulty - 1) * 30;
   };
 
   /**
@@ -563,6 +592,13 @@ const main = (debug = false) => {
    * @param {number} delta - Time elapsed since last frame in seconds
    */
   const update = (delta) => {
+    // Track elapsed time and update difficulty when game is running
+    if (gameState.hasStarted && !gameState.isGameOver) {
+      gameState.elapsedTime += delta;
+      const newDifficulty = calculateDifficulty(gameState.elapsedTime);
+      gameState.difficulty = newDifficulty;
+    }
+
     // Check if player image needs to be reloaded (when note value changes)
     if (player.image === null && player.imagePath) {
       loadPlayerImage();
@@ -570,18 +606,20 @@ const main = (debug = false) => {
 
     // Spawn new obstacles
     obstacleSpawner.timeSinceLastSpawn += delta;
-    if (obstacleSpawner.timeSinceLastSpawn >= CONFIG.OBSTACLE_SPAWN_INTERVAL) {
+    const currentSpawnInterval = getSpawnInterval(gameState.difficulty);
+    if (obstacleSpawner.timeSinceLastSpawn >= currentSpawnInterval) {
       obstacleSpawner.timeSinceLastSpawn = 0;
       const imagePath = obstacleSpawner.getNextImage();
       // Random Y position between grid 5 and 9 (inclusive, with half-grid steps)
       const randomIndex = Math.floor(Math.random() * 9); // 0-8 for 9 positions
       const randomGridY = 5 + randomIndex * 0.5; // 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9
       const gameWidth = canvas.width - UI_LAYOUT.sidebarWidth;
+      const currentSpeed = getObstacleSpeed(gameState.difficulty);
       const newObstacle = obstacleGenerator(
         gameWidth,
         randomGridY * CONFIG.GRID_SIZE,
         imagePath,
-        CONFIG.OBSTACLE_SPEED
+        currentSpeed
       );
       // Set the cached image immediately
       if (imageCache[imagePath]) {
@@ -897,11 +935,19 @@ const main = (debug = false) => {
       ctx.restore();
     }
 
-    // Draw lives and score
+    // Draw lives, score, and difficulty
     ctx.fillStyle = lives.current === 0 ? "#FF0000" : "#000000";
     ctx.font = "bold 24px Arial";
     ctx.textAlign = "right";
+    ctx.fillText(`Lives: ${lives.current}/${lives.max}`, gameWidth - 20, 30);
     ctx.fillText(`Score: ${score.current}`, gameWidth - 20, 60);
+
+    // Draw difficulty indicator
+    if (gameState.hasStarted && !gameState.isGameOver) {
+      ctx.fillStyle = "#4CAF50";
+      ctx.font = "bold 18px Arial";
+      ctx.fillText(`Level: ${gameState.difficulty}`, gameWidth - 20, 90);
+    }
     ctx.textAlign = "left";
 
     // Draw start screen
@@ -1211,6 +1257,8 @@ const main = (debug = false) => {
     // Clear game over state
     gameState.isGameOver = false;
     gameState.hasStarted = true; // Keep game started on restart
+    gameState.elapsedTime = 0; // Reset elapsed time
+    gameState.difficulty = 1; // Reset difficulty
 
     // Clear obstacles
     obstacles.length = 0;
