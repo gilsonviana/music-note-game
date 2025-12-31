@@ -69,6 +69,13 @@ const main = (debug = false) => {
   let canvas, ctx;
   let lastTime = 0;
 
+  // UI state
+  const uiState = {
+    selectedNote: "half",
+    noteImages: {},
+    isMuted: false,
+  };
+
   // Get selected player note value from UI
   const getSelectedPlayerNote = () => {
     return uiState.selectedNote;
@@ -77,13 +84,13 @@ const main = (debug = false) => {
   // Get player note icon path
   const getPlayerNoteIcon = (noteValue) => {
     const noteIcons = {
-      'whole': 'assets/MusicIcons/whole-note.png',
-      'half': 'assets/MusicIcons/half-note.png',
-      'quarter': 'assets/MusicIcons/quarter-note.png',
-      'eighth': 'assets/MusicIcons/eighth-note.png',
-      'sixteenth': 'assets/MusicIcons/sixteenth-note.png',
+      whole: "assets/MusicIcons/whole-note.png",
+      half: "assets/MusicIcons/half-note.png",
+      quarter: "assets/MusicIcons/quarter-note.png",
+      eighth: "assets/MusicIcons/eighth-note.png",
+      sixteenth: "assets/MusicIcons/sixteenth-note.png",
     };
-    return noteIcons[noteValue] || noteIcons['half'];
+    return noteIcons[noteValue] || noteIcons["half"];
   };
 
   // Get note duration in seconds based on note value
@@ -91,13 +98,13 @@ const main = (debug = false) => {
   const getNoteDuration = (noteValue) => {
     const beatDuration = 60 / CONFIG.BPM;
     const noteDurations = {
-      'whole': beatDuration * 4,      // 4 beats
-      'half': beatDuration * 2,       // 2 beats
-      'quarter': beatDuration * 1,    // 1 beat
-      'eighth': beatDuration * 0.5,   // 0.5 beats
-      'sixteenth': beatDuration * 0.25, // 0.25 beats
+      whole: beatDuration * 4, // 4 beats
+      half: beatDuration * 2, // 2 beats
+      quarter: beatDuration * 1, // 1 beat
+      eighth: beatDuration * 0.5, // 0.5 beats
+      sixteenth: beatDuration * 0.25, // 0.25 beats
     };
-    return noteDurations[noteValue] || noteDurations['quarter'];
+    return noteDurations[noteValue] || noteDurations["quarter"];
   };
 
   // Game configuration
@@ -127,13 +134,13 @@ const main = (debug = false) => {
   // Note key mapping (keyboard letters to grid Y position)
   // Letters map to musical notes - some notes repeat at different octaves
   const NOTE_KEY_MAP = {
-    "c": [6.5],        // C5
-    "d": [6.0],        // D5
-    "e": [5.5, 9.0],   // E5 and E4
-    "f": [5.0, 8.5],   // F5 and F4
-    "g": [8.0],        // G4
-    "a": [7.5],        // A4
-    "b": [7.0],        // B4
+    c: [6.5], // C5
+    d: [6.0], // D5
+    e: [5.5, 9.0], // E5 and E4
+    f: [5.0, 8.5], // F5 and F4
+    g: [8.0], // G4
+    a: [7.5], // A4
+    b: [7.0], // B4
   };
 
   // Obstacles on the grid with monster images
@@ -228,13 +235,6 @@ const main = (debug = false) => {
     difficulty: 1, // Current difficulty level (1-5)
   };
 
-  // UI state
-  const uiState = {
-    selectedNote: 'half',
-    noteImages: {},
-    isMuted: false,
-  };
-
   // UI Layout constants
   const UI_LAYOUT = {
     sidebarWidth: 120,
@@ -303,28 +303,28 @@ const main = (debug = false) => {
     // Musical notes mapped to grid Y positions (5-9 including half steps)
     // C major scale descending: higher on screen = higher pitch
     noteFrequencies: {
-      "5.0": 698.46,  // F5
-      "5.5": 659.25,    // E5
-      "6.0": 587.33,  // D5
-      "6.5": 523.25,    // C5
-      "7.0": 493.88,  // B4
-      "7.5": 440.00,    // A4
-      "8.0": 392.00,  // G4
-      "8.5": 349.23,    // F4
-      "9.0": 329.63,    // E4
+      "5.0": 698.46, // F5
+      5.5: 659.25, // E5
+      "6.0": 587.33, // D5
+      6.5: 523.25, // C5
+      "7.0": 493.88, // B4
+      7.5: 440.0, // A4
+      "8.0": 392.0, // G4
+      8.5: 349.23, // F4
+      "9.0": 329.63, // E4
     },
 
     // Note names for display
     noteNames: {
-      "5.0": 'F',
-      "5.5": 'E',
-      "6.0": 'D',
-      "6.5": 'C',
-      "7.0": 'B',
-      "7.5": 'A',
-      "8.0": 'G',
-      "8.5": 'F',
-      "9.0": 'E',
+      "5.0": "F",
+      5.5: "E",
+      "6.0": "D",
+      6.5: "C",
+      "7.0": "B",
+      7.5: "A",
+      "8.0": "G",
+      8.5: "F",
+      "9.0": "E",
     },
 
     init() {
@@ -333,9 +333,9 @@ const main = (debug = false) => {
         this.context = new (window.AudioContext || window.webkitAudioContext)();
       }
       // Resume context if suspended (required by modern browsers)
-      if (this.context && this.context.state === 'suspended') {
-        this.context.resume().catch(err => {
-          console.warn('Failed to resume audio context:', err);
+      if (this.context && this.context.state === "suspended") {
+        this.context.resume().catch((err) => {
+          console.warn("Failed to resume audio context:", err);
         });
       }
     },
@@ -344,7 +344,10 @@ const main = (debug = false) => {
       if (!this.context || this.isMuted) return;
 
       // Use provided duration or default to player's current note duration
-      const duration = noteDuration !== null ? noteDuration : getNoteDuration(player.noteValue);
+      const duration =
+        noteDuration !== null
+          ? noteDuration
+          : getNoteDuration(player.noteValue);
 
       // Convert pixel Y to grid Y (including half positions)
       const gridY = pixelY / CONFIG.GRID_SIZE;
@@ -399,7 +402,10 @@ const main = (debug = false) => {
       gain1.gain.linearRampToValueAtTime(0.35, now + attackTime);
 
       // Decay phase
-      gain1.gain.linearRampToValueAtTime(sustainLevel, now + attackTime + decayTime);
+      gain1.gain.linearRampToValueAtTime(
+        sustainLevel,
+        now + attackTime + decayTime
+      );
 
       // Sustain phase (maintains until release)
       const noteEndTime = now + duration;
@@ -423,7 +429,7 @@ const main = (debug = false) => {
 
       try {
         // Resume context if suspended
-        if (this.context.state === 'suspended') {
+        if (this.context.state === "suspended") {
           this.context.resume();
         }
 
@@ -450,7 +456,7 @@ const main = (debug = false) => {
         oscillator.start(now);
         oscillator.stop(now + duration);
       } catch (err) {
-        console.error('Error playing error sound:', err);
+        console.error("Error playing error sound:", err);
       }
     },
 
@@ -473,7 +479,7 @@ const main = (debug = false) => {
       const roundedGridY = Math.round(gridY * 2) / 2;
       // Convert to string key to properly lookup in audio.noteNames object
       const noteKey = roundedGridY.toFixed(1);
-      this.noteName = audio.noteNames[noteKey] || 'C';
+      this.noteName = audio.noteNames[noteKey] || "C";
       this.displayTime = 0;
     },
 
@@ -703,8 +709,10 @@ const main = (debug = false) => {
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const obs = obstacles[i];
       // Remove if off-screen or if it has finished fading away
-      if (obs.pixelX + CONFIG.GRID_SIZE < 0 ||
-          (obs.fadeAnimation.progress >= 1 && !obs.fadeAnimation.isAnimating)) {
+      if (
+        obs.pixelX + CONFIG.GRID_SIZE < 0 ||
+        (obs.fadeAnimation.progress >= 1 && !obs.fadeAnimation.isAnimating)
+      ) {
         obstacles.splice(i, 1);
       }
     }
@@ -757,7 +765,7 @@ const main = (debug = false) => {
     ctx.fillText("Player Note", UI_LAYOUT.sidebarWidth / 2, 30);
 
     // Draw note options
-    const notes = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
+    const notes = ["whole", "half", "quarter", "eighth", "sixteenth"];
     notes.forEach((note, index) => {
       const y = UI_LAYOUT.startY + index * UI_LAYOUT.noteSpacing;
       const centerX = UI_LAYOUT.sidebarWidth / 2;
@@ -765,7 +773,12 @@ const main = (debug = false) => {
       // Highlight selected note
       if (note === uiState.selectedNote) {
         ctx.fillStyle = "#4CAF50";
-        ctx.fillRect(10, y - UI_LAYOUT.noteIconSize / 2, UI_LAYOUT.sidebarWidth - 20, UI_LAYOUT.noteIconSize + 16);
+        ctx.fillRect(
+          10,
+          y - UI_LAYOUT.noteIconSize / 2,
+          UI_LAYOUT.sidebarWidth - 20,
+          UI_LAYOUT.noteIconSize + 16
+        );
       }
 
       // Draw note image
@@ -783,17 +796,31 @@ const main = (debug = false) => {
       // Draw note label
       ctx.fillStyle = note === uiState.selectedNote ? "#ffffff" : "#666666";
       ctx.font = "11px Arial";
-      ctx.fillText(note.charAt(0).toUpperCase() + note.slice(1), centerX, y + UI_LAYOUT.noteIconSize / 2 + 12);
+      ctx.fillText(
+        note.charAt(0).toUpperCase() + note.slice(1),
+        centerX,
+        y + UI_LAYOUT.noteIconSize / 2 + 12
+      );
     });
 
     // Draw mute button
     const muteX = 10;
     const muteY = UI_LAYOUT.muteButtonY;
     ctx.fillStyle = uiState.isMuted ? "#FF6B6B" : "#4CAF50";
-    ctx.fillRect(muteX, muteY, UI_LAYOUT.muteButtonWidth, UI_LAYOUT.muteButtonHeight);
+    ctx.fillRect(
+      muteX,
+      muteY,
+      UI_LAYOUT.muteButtonWidth,
+      UI_LAYOUT.muteButtonHeight
+    );
     ctx.strokeStyle = "#333333";
     ctx.lineWidth = 2;
-    ctx.strokeRect(muteX, muteY, UI_LAYOUT.muteButtonWidth, UI_LAYOUT.muteButtonHeight);
+    ctx.strokeRect(
+      muteX,
+      muteY,
+      UI_LAYOUT.muteButtonWidth,
+      UI_LAYOUT.muteButtonHeight
+    );
 
     ctx.fillStyle = "#ffffff";
     ctx.font = "20px Arial";
@@ -935,13 +962,7 @@ const main = (debug = false) => {
         ctx.scale(scale, scale);
         ctx.translate(-CONFIG.GRID_SIZE / 2, -CONFIG.GRID_SIZE / 2);
 
-        ctx.drawImage(
-          obs.image,
-          0,
-          0,
-          CONFIG.GRID_SIZE,
-          CONFIG.GRID_SIZE
-        );
+        ctx.drawImage(obs.image, 0, 0, CONFIG.GRID_SIZE, CONFIG.GRID_SIZE);
         ctx.restore();
       } else {
         // Fallback to colored square if image not loaded
@@ -957,12 +978,7 @@ const main = (debug = false) => {
         ctx.translate(-CONFIG.GRID_SIZE / 2, -CONFIG.GRID_SIZE / 2);
 
         ctx.fillStyle = "#FF6B6B";
-        ctx.fillRect(
-          0,
-          0,
-          CONFIG.GRID_SIZE,
-          CONFIG.GRID_SIZE
-        );
+        ctx.fillRect(0, 0, CONFIG.GRID_SIZE, CONFIG.GRID_SIZE);
         ctx.restore();
       }
     });
@@ -1033,7 +1049,11 @@ const main = (debug = false) => {
       ctx.fillText("GAME OVER", gameWidth / 2, canvas.height / 2 - 60);
       ctx.fillStyle = "#FFFFFF";
       ctx.font = "bold 32px Arial";
-      ctx.fillText("Press R to try again", gameWidth / 2, canvas.height / 2 + 40);
+      ctx.fillText(
+        "Press R to try again",
+        gameWidth / 2,
+        canvas.height / 2 + 40
+      );
     }
 
     // Draw instructions at the bottom when game has started
@@ -1048,8 +1068,16 @@ const main = (debug = false) => {
 
       ctx.fillText("How to Play:", instructionX, instructionY);
       ctx.font = "12px Arial";
-      ctx.fillText("• Press C, D, E, F, G, A, B to match the notes", instructionX, instructionY + 20);
-      ctx.fillText("• Select note duration from the sidebar", instructionX, instructionY + 35);
+      ctx.fillText(
+        "• Press C, D, E, F, G, A, B to match the notes",
+        instructionX,
+        instructionY + 20
+      );
+      ctx.fillText(
+        "• Select note duration from the sidebar",
+        instructionX,
+        instructionY + 35
+      );
       ctx.fillText("• Don't miss the notes!", instructionX, instructionY + 50);
     }
 
@@ -1115,7 +1143,8 @@ const main = (debug = false) => {
     obstacles.forEach((obs) => {
       // Check if obstacle is within the overlay section (hitting zone)
       const obsCenter = obs.pixelX + CONFIG.GRID_SIZE / 2;
-      const isWithinOverlay = obsCenter >= overlayStartX && obsCenter <= overlayEndX;
+      const isWithinOverlay =
+        obsCenter >= overlayStartX && obsCenter <= overlayEndX;
 
       // Track if there's any obstacle in the overlay (for wrong key detection)
       if (isWithinOverlay && !obs.hasCollided && !obs.hasBeenAvoided) {
@@ -1124,7 +1153,7 @@ const main = (debug = false) => {
 
       // Check if obstacle matches any of the pressed note's Y positions
       const obsGridY = parseFloat((obs.pixelY / CONFIG.GRID_SIZE).toFixed(1));
-      const yMatch = gridYs.some(gridY => Math.abs(gridY - obsGridY) < 0.1);
+      const yMatch = gridYs.some((gridY) => Math.abs(gridY - obsGridY) < 0.1);
 
       // Collision occurs when Y positions match, obstacle is within overlay, and not already collided
       if (yMatch && isWithinOverlay && !obs.hasCollided) {
@@ -1177,11 +1206,15 @@ const main = (debug = false) => {
         const buttonX = canvas.width / 2 - buttonWidth / 2;
         const buttonY = canvas.height / 2 + 20;
 
-        if (x >= buttonX && x <= buttonX + buttonWidth &&
-            y >= buttonY && y <= buttonY + buttonHeight) {
+        if (
+          x >= buttonX &&
+          x <= buttonX + buttonWidth &&
+          y >= buttonY &&
+          y <= buttonY + buttonHeight
+        ) {
           gameState.hasStarted = true;
           // Initialize audio context on first interaction
-          if (audio.context && audio.context.state === 'suspended') {
+          if (audio.context && audio.context.state === "suspended") {
             audio.context.resume();
           }
         }
@@ -1191,7 +1224,7 @@ const main = (debug = false) => {
       // Handle UI sidebar clicks
       if (x < UI_LAYOUT.sidebarWidth) {
         // Check note selection clicks
-        const notes = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
+        const notes = ["whole", "half", "quarter", "eighth", "sixteenth"];
         notes.forEach((note, index) => {
           const noteY = UI_LAYOUT.startY + index * UI_LAYOUT.noteSpacing;
           const clickAreaTop = noteY - UI_LAYOUT.noteIconSize / 2 - 5;
@@ -1207,17 +1240,24 @@ const main = (debug = false) => {
         // Check mute button click
         const muteX = 10;
         const muteY = UI_LAYOUT.muteButtonY;
-        if (x >= muteX && x <= muteX + UI_LAYOUT.muteButtonWidth &&
-            y >= muteY && y <= muteY + UI_LAYOUT.muteButtonHeight) {
+        if (
+          x >= muteX &&
+          x <= muteX + UI_LAYOUT.muteButtonWidth &&
+          y >= muteY &&
+          y <= muteY + UI_LAYOUT.muteButtonHeight
+        ) {
           uiState.isMuted = audio.toggleMute();
-          console.log(`Audio ${uiState.isMuted ? 'muted' : 'unmuted'}`);
+          console.log(`Audio ${uiState.isMuted ? "muted" : "unmuted"}`);
         }
       }
     };
 
     const handleKeyDown = (e) => {
       // Handle restart key (allowed even when game is over)
-      if ((e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'R') && gameState.isGameOver) {
+      if (
+        (e.key.toLowerCase() === "r" || e.key.toLowerCase() === "R") &&
+        gameState.isGameOver
+      ) {
         restartGame();
         return;
       }
@@ -1228,7 +1268,7 @@ const main = (debug = false) => {
       }
 
       // Initialize audio context on first user interaction
-      if (audio.context && audio.context.state === 'suspended') {
+      if (audio.context && audio.context.state === "suspended") {
         audio.context.resume();
       }
 
@@ -1239,13 +1279,17 @@ const main = (debug = false) => {
         gameState.isNoteKeyPressed = true;
 
         // Find the Y position with an actual obstacle
-        const gridYArray = Array.isArray(noteGridYValues) ? noteGridYValues : [noteGridYValues];
+        const gridYArray = Array.isArray(noteGridYValues)
+          ? noteGridYValues
+          : [noteGridYValues];
         let targetGridY = gridYArray[0]; // Default to first value
 
         // Find obstacles at any of the note's Y positions
-        const obstaclesAtNote = obstacles.filter(obs => {
+        const obstaclesAtNote = obstacles.filter((obs) => {
           const obsGridY = (obs.pixelY / CONFIG.GRID_SIZE).toFixed(1);
-          return gridYArray.some(gridY => Math.abs(gridY - parseFloat(obsGridY)) < 0.1);
+          return gridYArray.some(
+            (gridY) => Math.abs(gridY - parseFloat(obsGridY)) < 0.1
+          );
         });
 
         // If there are obstacles, use the Y position of the closest one
@@ -1327,7 +1371,7 @@ const main = (debug = false) => {
     // Reset obstacle spawner
     obstacleSpawner.timeSinceLastSpawn = 0;
 
-    console.log('Game state reset');
+    console.log("Game state reset");
   };
 
   /**
@@ -1394,20 +1438,21 @@ const main = (debug = false) => {
    * Load UI note images
    */
   const loadUIImages = async () => {
-    const notes = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
-    const promises = notes.map(note =>
-      new Promise((resolve) => {
-        const img = new Image();
-        img.src = getPlayerNoteIcon(note);
-        img.onload = () => {
-          uiState.noteImages[note] = img;
-          resolve();
-        };
-        img.onerror = () => {
-          console.warn(`Failed to load UI image for ${note}`);
-          resolve();
-        };
-      })
+    const notes = ["whole", "half", "quarter", "eighth", "sixteenth"];
+    const promises = notes.map(
+      (note) =>
+        new Promise((resolve) => {
+          const img = new Image();
+          img.src = getPlayerNoteIcon(note);
+          img.onload = () => {
+            uiState.noteImages[note] = img;
+            resolve();
+          };
+          img.onerror = () => {
+            console.warn(`Failed to load UI image for ${note}`);
+            resolve();
+          };
+        })
     );
     return Promise.all(promises);
   };
