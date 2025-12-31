@@ -520,7 +520,7 @@ const main = (debug = false) => {
     image: null,
     x: 1 * CONFIG.GRID_SIZE, // Grid X position: 1
     y: 5 * CONFIG.GRID_SIZE, // Grid Y position: 5
-    width: 2 * CONFIG.GRID_SIZE, // Width: 2 grid cells
+    width: 3 * CONFIG.GRID_SIZE, // Width: 3 grid cells
     height: (10 - 5) * CONFIG.GRID_SIZE, // Height from grid 5 to 10
   };
 
