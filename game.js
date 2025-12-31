@@ -169,7 +169,8 @@ const main = (debug = false) => {
         !obstacle.hasCollided
       ) {
         obstacle.hasBeenAvoided = true;
-        return this.loseLife();
+        this.loseLife();
+        return true; // Return true to indicate a miss occurred
       }
       return false;
     },
@@ -268,6 +269,12 @@ const main = (debug = false) => {
       if (!this.context) {
         this.context = new (window.AudioContext || window.webkitAudioContext)();
       }
+      // Resume context if suspended (required by modern browsers)
+      if (this.context && this.context.state === 'suspended') {
+        this.context.resume().catch(err => {
+          console.warn('Failed to resume audio context:', err);
+        });
+      }
     },
 
     playNote(pixelY, noteDuration = null) {
@@ -301,6 +308,42 @@ const main = (debug = false) => {
 
       oscillator.start(now);
       oscillator.stop(now + duration);
+    },
+
+    playErrorSound() {
+      if (!this.context || this.isMuted) return;
+
+      try {
+        // Resume context if suspended
+        if (this.context.state === 'suspended') {
+          this.context.resume();
+        }
+
+        // Create a C# error sound beep
+        const oscillator = this.context.createOscillator();
+        const gainNode = this.context.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(this.context.destination);
+
+        // C# note frequency (277.18 Hz) - more audible
+        oscillator.frequency.value = 277.18;
+        oscillator.type = "sine";
+
+        // Duration for error sound
+        const duration = 0.4;
+        const now = this.context.currentTime;
+
+        // Quick attack and decay envelope
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(0.5, now + 0.05); // Quick attack
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration); // Decay
+
+        oscillator.start(now);
+        oscillator.stop(now + duration);
+      } catch (err) {
+        console.error('Error playing error sound:', err);
+      }
     },
 
     toggleMute() {
@@ -519,7 +562,12 @@ const main = (debug = false) => {
       obs.fadeAnimation.update(delta);
       // Check if player missed the obstacle
       if (lives.checkMiss(obs, player.pixelX)) {
-        gameState.isGameOver = true;
+        // Play error sound on miss
+        audio.playErrorSound();
+        // Check if game is over after losing a life
+        if (lives.isGameOver()) {
+          gameState.isGameOver = true;
+        }
       }
     });
 
@@ -822,6 +870,11 @@ const main = (debug = false) => {
    */
   const setupInputHandlers = () => {
     const handleKeyDown = (e) => {
+      // Initialize audio context on first user interaction
+      if (audio.context && audio.context.state === 'suspended') {
+        audio.context.resume();
+      }
+
       // Handle restart key
       if ((e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'R') && gameState.isGameOver) {
         restartGame();
