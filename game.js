@@ -12,6 +12,29 @@ const obstacleGenerator = (
     speed,
     hasBeenAvoided: false, // Track if player has avoided this obstacle
     hasCollided: false, // Track if player has collided with this obstacle
+    fadeAnimation: {
+      isAnimating: false,
+      progress: 0, // 0 to 1
+      duration: 0.4, // Fade duration in seconds
+      start() {
+        this.isAnimating = true;
+        this.progress = 0;
+      },
+      update(delta) {
+        if (this.isAnimating) {
+          this.progress += delta / this.duration;
+          if (this.progress >= 1) {
+            this.progress = 1;
+            this.isAnimating = false;
+          }
+        }
+      },
+      getAlpha() {
+        if (!this.isAnimating) return 1;
+        // Fade out as progress goes from 0 to 1
+        return Math.max(0, 1 - this.progress);
+      },
+    },
   };
 };
 
@@ -146,15 +169,28 @@ const main = (debug = false) => {
     // Musical notes mapped to grid Y positions (5-9 including half steps)
     // C major scale descending: higher on screen = higher pitch
     noteFrequencies: {
-      5: 523.25,    // C5
-      5.5: 493.88,  // B4
-      6: 440.00,    // A4
-      6.5: 392.00,  // G4
-      7: 349.23,    // F4
-      7.5: 329.63,  // E4
-      8: 293.66,    // D4
-      8.5: 261.63,  // C4 (Middle C)
-      9: 246.94,    // B3
+      5.5: 698.46,  // F5
+      6: 659.25,    // E5
+      6.5: 587.33,  // D5
+      7: 523.25,    // C5
+      7.5: 493.88,  // B4
+      8: 440.00,    // A4
+      8.5: 392.00,  // G4
+      9: 349.23,    // F4
+      9.5: 329.63,    // E4
+    },
+
+    // Note names for display
+    noteNames: {
+      5.5: 'F',
+      6: 'E',
+      6.5: 'D',
+      7: 'C',
+      7.5: 'B',
+      8: 'A',
+      8.5: 'G',
+      9: 'F',
+      9.5: 'E',
     },
 
     init() {
@@ -194,6 +230,37 @@ const main = (debug = false) => {
   };
 
   /**
+   * Note display system for showing note names on screen
+   */
+  const noteDisplay = {
+    noteName: null,
+    displayTime: 0,
+    displayDuration: 0.8, // Show note for 0.8 seconds
+
+    show(pixelY) {
+      const gridY = pixelY / CONFIG.GRID_SIZE;
+      const roundedGridY = Math.round(gridY * 2) / 2;
+      this.noteName = audio.noteNames[roundedGridY] || 'C';
+      this.displayTime = 0;
+    },
+
+    update(delta) {
+      if (this.noteName) {
+        this.displayTime += delta;
+        if (this.displayTime >= this.displayDuration) {
+          this.noteName = null;
+        }
+      }
+    },
+
+    getAlpha() {
+      if (!this.noteName) return 0;
+      // Fade out over time
+      return Math.max(0, 1 - this.displayTime / this.displayDuration);
+    },
+  };
+
+  /**
    * Check if player is currently colliding with any obstacle
    */
   const checkPlayerCollisions = () => {
@@ -223,6 +290,12 @@ const main = (debug = false) => {
 
         // Play the musical note corresponding to the obstacle's Y position
         audio.playNote(obs.pixelY);
+
+        // Display the note name on screen
+        noteDisplay.show(obs.pixelY);
+
+        // Start monster fade animation
+        obs.fadeAnimation.start();
 
         // Trigger player collision animation
         playerAnimation.start();
@@ -342,13 +415,18 @@ const main = (debug = false) => {
     // Update obstacle positions
     obstacles.forEach((obs) => {
       obs.pixelX -= obs.speed * delta; // Move left
+      // Update fade animation
+      obs.fadeAnimation.update(delta);
       // Check if player missed the obstacle
       score.checkMiss(obs, player.pixelX);
     });
 
-    // Remove obstacles that went off-screen
+    // Remove obstacles that went off-screen or finished fading
     for (let i = obstacles.length - 1; i >= 0; i--) {
-      if (obstacles[i].pixelX + CONFIG.GRID_SIZE < 0) {
+      const obs = obstacles[i];
+      // Remove if off-screen or if it has finished fading away
+      if (obs.pixelX + CONFIG.GRID_SIZE < 0 ||
+          (obs.fadeAnimation.progress >= 1 && !obs.fadeAnimation.isAnimating)) {
         obstacles.splice(i, 1);
       }
     }
@@ -373,6 +451,9 @@ const main = (debug = false) => {
 
     // Update player animation
     playerAnimation.update(delta);
+
+    // Update note display
+    noteDisplay.update(delta);
 
     // Handle input to start new movement if not already moving
     if (!movement.isMoving) {
@@ -514,8 +595,12 @@ const main = (debug = false) => {
 
     // Draw obstacles
     obstacles.forEach((obs) => {
+      const alpha = obs.fadeAnimation.getAlpha();
+
       if (obs.image && obs.image.complete) {
-        // Draw the monster image
+        // Draw the monster image with fade effect
+        ctx.save();
+        ctx.globalAlpha = alpha;
         ctx.drawImage(
           obs.image,
           obs.pixelX,
@@ -523,8 +608,11 @@ const main = (debug = false) => {
           CONFIG.GRID_SIZE,
           CONFIG.GRID_SIZE
         );
+        ctx.restore();
       } else {
         // Fallback to colored square if image not loaded
+        ctx.save();
+        ctx.globalAlpha = alpha;
         ctx.fillStyle = "#FF6B6B";
         ctx.fillRect(
           obs.pixelX,
@@ -532,8 +620,22 @@ const main = (debug = false) => {
           CONFIG.GRID_SIZE,
           CONFIG.GRID_SIZE
         );
+        ctx.restore();
       }
     });
+
+    // Draw note display (fading out)
+    if (noteDisplay.noteName) {
+      const alpha = noteDisplay.getAlpha();
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = "#333333";
+      ctx.font = "bold 72px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(noteDisplay.noteName, canvas.width / 2, canvas.height / 2);
+      ctx.restore();
+    }
 
     // Draw score
     ctx.fillStyle = score.current < 0 ? "#FF0000" : "#000000";
@@ -547,15 +649,18 @@ const main = (debug = false) => {
       ctx.fillStyle = "#333333";
       ctx.font = "12px Arial";
       ctx.fillText(`Grid: (${player.gridX}, ${player.gridY})`, 10, 20);
+      const halfGridX = (player.pixelX / (CONFIG.GRID_SIZE / 2));
+      const halfGridY = (player.pixelY / (CONFIG.GRID_SIZE / 2));
+      ctx.fillText(`Half Grid: (${halfGridX.toFixed(1)}, ${halfGridY.toFixed(1)})`, 10, 32);
       ctx.fillText(
         `Pixel: (${Math.round(player.getPixelX())}, ${Math.round(
           player.getPixelY()
         )})`,
         10,
-        35
+        44
       );
-      ctx.fillText(`Moving: ${movement.isMoving}`, 10, 50);
-      ctx.fillText(`Obstacles: ${obstacles.length}`, 10, 65);
+      ctx.fillText(`Moving: ${movement.isMoving}`, 10, 56);
+      ctx.fillText(`Obstacles: ${obstacles.length}`, 10, 68);
     }
   };
 
