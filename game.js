@@ -201,6 +201,9 @@ const main = (debug = false) => {
         // Play the musical note corresponding to the obstacle's Y position
         const obstacleGridY = Math.round(obs.pixelY / CONFIG.GRID_SIZE);
         audio.playNote(obstacleGridY);
+
+        // Trigger player collision animation
+        playerAnimation.start();
       }
     });
   };
@@ -233,6 +236,42 @@ const main = (debug = false) => {
         return this.pixelY + (movement.nextPixelY - this.pixelY) * movement.moveProgress;
       }
       return this.pixelY;
+    },
+  };
+
+  // Player animation state
+  const playerAnimation = {
+    isAnimating: false,
+    progress: 0, // 0 to 1
+    duration: 0.2, // Animation duration in seconds
+    start() {
+      this.isAnimating = true;
+      this.progress = 0;
+    },
+    update(delta) {
+      if (this.isAnimating) {
+        this.progress += delta / this.duration;
+        if (this.progress >= 1) {
+          this.progress = 1;
+          this.isAnimating = false;
+        }
+      }
+    },
+    getScale() {
+      if (!this.isAnimating) return 1;
+      // Scale up to 1.3 and back down
+      const t = this.progress;
+      return 1 + 0.3 * Math.sin(t * Math.PI);
+    },
+    getShake() {
+      if (!this.isAnimating) return { x: 0, y: 0 };
+      // Shake horizontally and vertically
+      const t = this.progress;
+      const intensity = 5 * (1 - t); // Fade out shake
+      return {
+        x: Math.sin(t * Math.PI * 8) * intensity,
+        y: Math.cos(t * Math.PI * 8) * intensity,
+      };
     },
   };
 
@@ -302,6 +341,9 @@ const main = (debug = false) => {
 
     // Check for collisions every frame
     checkPlayerCollisions();
+
+    // Update player animation
+    playerAnimation.update(delta);
 
     // Handle input to start new movement if not already moving
     if (!movement.isMoving) {
@@ -398,24 +440,48 @@ const main = (debug = false) => {
     }
 
     // Draw player at interpolated position
+    const scale = playerAnimation.getScale();
+    const shake = playerAnimation.getShake();
+    const playerX = player.getPixelX() + shake.x;
+    const playerY = player.getPixelY() + shake.y;
+
     if (player.image && player.image.complete) {
+      // Apply scaling transformation
+      ctx.save();
+      const centerX = playerX + player.size / 2;
+      const centerY = playerY + player.size / 2;
+      ctx.translate(centerX, centerY);
+      ctx.scale(scale, scale);
+      ctx.translate(-centerX, -centerY);
+
       // Draw the player image
       ctx.drawImage(
         player.image,
-        player.getPixelX(),
-        player.getPixelY(),
+        playerX,
+        playerY,
         player.size,
         player.size
       );
+
+      ctx.restore();
     } else {
       // Fallback to colored square if image not loaded
+      ctx.save();
+      const centerX = playerX + player.size / 2;
+      const centerY = playerY + player.size / 2;
+      ctx.translate(centerX, centerY);
+      ctx.scale(scale, scale);
+      ctx.translate(-centerX, -centerY);
+
       ctx.fillStyle = player.color;
       ctx.fillRect(
-        player.getPixelX(),
-        player.getPixelY(),
+        playerX,
+        playerY,
         player.size,
         player.size
       );
+
+      ctx.restore();
     }
 
     // Draw obstacles
