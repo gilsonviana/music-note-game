@@ -1,4 +1,9 @@
-const obstacleGenerator = (pixelX = 0, pixelY = 0, imagePath = null, speed = 100) => {
+const obstacleGenerator = (
+  pixelX = 0,
+  pixelY = 0,
+  imagePath = null,
+  speed = 100
+) => {
   return {
     pixelX,
     pixelY,
@@ -65,15 +70,16 @@ const main = (debug = false) => {
   const obstacleSpawner = {
     timeSinceLastSpawn: 0,
     monsterImages: [
-      'assets/MonsterIcons/monster.png',
-      'assets/MonsterIcons/monster (1).png',
-      'assets/MonsterIcons/monster (2).png',
-      'assets/MonsterIcons/monster (3).png',
+      "assets/MonsterIcons/monster.png",
+      "assets/MonsterIcons/monster (1).png",
+      "assets/MonsterIcons/monster (2).png",
+      "assets/MonsterIcons/monster (3).png",
     ],
     currentImageIndex: 0,
     getNextImage() {
       const img = this.monsterImages[this.currentImageIndex];
-      this.currentImageIndex = (this.currentImageIndex + 1) % this.monsterImages.length;
+      this.currentImageIndex =
+        (this.currentImageIndex + 1) % this.monsterImages.length;
       return img;
     },
   };
@@ -122,11 +128,13 @@ const main = (debug = false) => {
     const pixelY = gridY * CONFIG.GRID_SIZE;
     const tolerance = CONFIG.GRID_SIZE / 2; // Allow some tolerance for moving obstacles
 
-    return obstacles.find(
-      (obs) =>
-        Math.abs(obs.pixelX - pixelX) < tolerance &&
-        Math.abs(obs.pixelY - pixelY) < tolerance
-    ) || null;
+    return (
+      obstacles.find(
+        (obs) =>
+          Math.abs(obs.pixelX - pixelX) < tolerance &&
+          Math.abs(obs.pixelY - pixelY) < tolerance
+      ) || null
+    );
   };
 
   /**
@@ -135,14 +143,18 @@ const main = (debug = false) => {
   const audio = {
     context: null,
 
-    // Musical notes mapped to grid Y positions (5-9)
-    // Using standard musical staff notes: E, D, C, B, A
+    // Musical notes mapped to grid Y positions (5-9 including half steps)
+    // C major scale descending: higher on screen = higher pitch
     noteFrequencies: {
-      5: 329.63, // E4
-      6: 293.66, // D4
-      7: 261.63, // C4 (Middle C)
-      8: 246.94, // B3
-      9: 220.00, // A3
+      5: 523.25,    // C5
+      5.5: 493.88,  // B4
+      6: 440.00,    // A4
+      6.5: 392.00,  // G4
+      7: 349.23,    // F4
+      7.5: 329.63,  // E4
+      8: 293.66,    // D4
+      8.5: 261.63,  // C4 (Middle C)
+      9: 246.94,    // B3
     },
 
     init() {
@@ -152,10 +164,13 @@ const main = (debug = false) => {
       }
     },
 
-    playNote(gridY, duration = 0.2) {
+    playNote(pixelY, duration = 0.2) {
       if (!this.context) return;
 
-      const frequency = this.noteFrequencies[gridY] || 261.63; // Default to C4
+      // Convert pixel Y to grid Y (including half positions)
+      const gridY = pixelY / CONFIG.GRID_SIZE;
+      const roundedGridY = Math.round(gridY * 2) / 2; // Round to nearest 0.5
+      const frequency = this.noteFrequencies[roundedGridY] || 261.63; // Default to C4
 
       // Create oscillator
       const oscillator = this.context.createOscillator();
@@ -165,7 +180,7 @@ const main = (debug = false) => {
       gainNode.connect(this.context.destination);
 
       oscillator.frequency.value = frequency;
-      oscillator.type = 'sine'; // Use sine wave for a pure tone
+      oscillator.type = "sine"; // Use sine wave for a pure tone
 
       // Envelope for smoother sound
       const now = this.context.currentTime;
@@ -189,8 +204,16 @@ const main = (debug = false) => {
 
     obstacles.forEach((obs) => {
       // Check if obstacle overlaps with player position
-      const dx = Math.abs(playerPixelX + CONFIG.PLAYER_SIZE / 2 - (obs.pixelX + CONFIG.GRID_SIZE / 2));
-      const dy = Math.abs(playerPixelY + CONFIG.PLAYER_SIZE / 2 - (obs.pixelY + CONFIG.GRID_SIZE / 2));
+      const dx = Math.abs(
+        playerPixelX +
+          CONFIG.PLAYER_SIZE / 2 -
+          (obs.pixelX + CONFIG.GRID_SIZE / 2)
+      );
+      const dy = Math.abs(
+        playerPixelY +
+          CONFIG.PLAYER_SIZE / 2 -
+          (obs.pixelY + CONFIG.GRID_SIZE / 2)
+      );
 
       const collision = dx < CONFIG.PLAYER_SIZE && dy < CONFIG.PLAYER_SIZE;
 
@@ -199,8 +222,7 @@ const main = (debug = false) => {
         score.collision();
 
         // Play the musical note corresponding to the obstacle's Y position
-        const obstacleGridY = Math.round(obs.pixelY / CONFIG.GRID_SIZE);
-        audio.playNote(obstacleGridY);
+        audio.playNote(obs.pixelY);
 
         // Trigger player collision animation
         playerAnimation.start();
@@ -210,11 +232,11 @@ const main = (debug = false) => {
 
   // Player object
   const player = {
-    color: '#4CAF50',
+    color: "#4CAF50",
     pixelX: CONFIG.PLAYER_INITIAL_GRID_X * CONFIG.GRID_SIZE,
     pixelY: CONFIG.PLAYER_INITIAL_GRID_Y * CONFIG.GRID_SIZE,
     size: CONFIG.PLAYER_SIZE,
-    imagePath: 'assets/MusicIcons/half-note.png',
+    imagePath: "assets/MusicIcons/half-note.png",
     image: null,
     // Get grid X (for compatibility)
     get gridX() {
@@ -227,13 +249,19 @@ const main = (debug = false) => {
     // Get pixel position based on movement progress
     getPixelX() {
       if (movement.isMoving && movement.nextPixelX !== null) {
-        return this.pixelX + (movement.nextPixelX - this.pixelX) * movement.moveProgress;
+        return (
+          this.pixelX +
+          (movement.nextPixelX - this.pixelX) * movement.moveProgress
+        );
       }
       return this.pixelX;
     },
     getPixelY() {
       if (movement.isMoving && movement.nextPixelY !== null) {
-        return this.pixelY + (movement.nextPixelY - this.pixelY) * movement.moveProgress;
+        return (
+          this.pixelY +
+          (movement.nextPixelY - this.pixelY) * movement.moveProgress
+        );
       }
       return this.pixelY;
     },
@@ -277,7 +305,7 @@ const main = (debug = false) => {
 
   // Treble clef object
   const trebleClef = {
-    imagePath: 'assets/MusicIcons/treble-clef.png',
+    imagePath: "assets/MusicIcons/treble-clef.png",
     image: null,
     x: 1 * CONFIG.GRID_SIZE, // Grid X position: 1
     y: 5 * CONFIG.GRID_SIZE, // Grid Y position: 5
@@ -295,8 +323,9 @@ const main = (debug = false) => {
     if (obstacleSpawner.timeSinceLastSpawn >= CONFIG.OBSTACLE_SPAWN_INTERVAL) {
       obstacleSpawner.timeSinceLastSpawn = 0;
       const imagePath = obstacleSpawner.getNextImage();
-      // Random Y position between grid 5 and 9 (inclusive)
-      const randomGridY = 5 + Math.floor(Math.random() * 5); // 5, 6, 7, 8, or 9
+      // Random Y position between grid 5 and 9 (inclusive, with half-grid steps)
+      const randomIndex = Math.floor(Math.random() * 9); // 0-8 for 9 positions
+      const randomGridY = 5 + randomIndex * 0.5; // 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9
       const newObstacle = obstacleGenerator(
         canvas.width,
         randomGridY * CONFIG.GRID_SIZE,
@@ -418,7 +447,13 @@ const main = (debug = false) => {
 
     // Draw treble clef at the beginning of the stave
     if (trebleClef.image && trebleClef.image.complete) {
-      ctx.drawImage(trebleClef.image, trebleClef.x, trebleClef.y, trebleClef.width, trebleClef.height);
+      ctx.drawImage(
+        trebleClef.image,
+        trebleClef.x,
+        trebleClef.y,
+        trebleClef.width,
+        trebleClef.height
+      );
     }
 
     // Draw grid (optional, helpful for debugging)
@@ -431,7 +466,11 @@ const main = (debug = false) => {
         ctx.lineTo(x, canvas.height);
         ctx.stroke();
       }
-      for (let y = CONFIG.GRID_SIZE / 2; y <= canvas.height; y += CONFIG.GRID_SIZE) {
+      for (
+        let y = CONFIG.GRID_SIZE / 2;
+        y <= canvas.height;
+        y += CONFIG.GRID_SIZE
+      ) {
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(canvas.width, y);
@@ -455,13 +494,7 @@ const main = (debug = false) => {
       ctx.translate(-centerX, -centerY);
 
       // Draw the player image
-      ctx.drawImage(
-        player.image,
-        playerX,
-        playerY,
-        player.size,
-        player.size
-      );
+      ctx.drawImage(player.image, playerX, playerY, player.size, player.size);
 
       ctx.restore();
     } else {
@@ -474,12 +507,7 @@ const main = (debug = false) => {
       ctx.translate(-centerX, -centerY);
 
       ctx.fillStyle = player.color;
-      ctx.fillRect(
-        playerX,
-        playerY,
-        player.size,
-        player.size
-      );
+      ctx.fillRect(playerX, playerY, player.size, player.size);
 
       ctx.restore();
     }
@@ -488,11 +516,22 @@ const main = (debug = false) => {
     obstacles.forEach((obs) => {
       if (obs.image && obs.image.complete) {
         // Draw the monster image
-        ctx.drawImage(obs.image, obs.pixelX, obs.pixelY, CONFIG.GRID_SIZE, CONFIG.GRID_SIZE);
+        ctx.drawImage(
+          obs.image,
+          obs.pixelX,
+          obs.pixelY,
+          CONFIG.GRID_SIZE,
+          CONFIG.GRID_SIZE
+        );
       } else {
         // Fallback to colored square if image not loaded
         ctx.fillStyle = "#FF6B6B";
-        ctx.fillRect(obs.pixelX, obs.pixelY, CONFIG.GRID_SIZE, CONFIG.GRID_SIZE);
+        ctx.fillRect(
+          obs.pixelX,
+          obs.pixelY,
+          CONFIG.GRID_SIZE,
+          CONFIG.GRID_SIZE
+        );
       }
     });
 
@@ -640,7 +679,9 @@ const main = (debug = false) => {
         resolve();
       };
       img.onerror = () => {
-        console.warn(`Failed to load treble clef image: ${trebleClef.imagePath}`);
+        console.warn(
+          `Failed to load treble clef image: ${trebleClef.imagePath}`
+        );
         resolve();
       };
     });
