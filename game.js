@@ -353,24 +353,69 @@ const main = (debug = false) => {
       const noteKey = roundedGridY.toFixed(1);
       const frequency = this.noteFrequencies[noteKey] || 261.63; // Default to C4
 
-      // Create oscillator
-      const oscillator = this.context.createOscillator();
-      const gainNode = this.context.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(this.context.destination);
-
-      oscillator.frequency.value = frequency;
-      oscillator.type = "sine"; // Use sine wave for a pure tone
-
-      // Envelope for smoother sound
       const now = this.context.currentTime;
-      gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(0.3, now + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration);
 
-      oscillator.start(now);
-      oscillator.stop(now + duration);
+      // Piano sound parameters
+      const attackTime = 0.02; // Quick attack (piano hammer strike)
+      const decayTime = 0.3; // Medium decay
+      const sustainLevel = 0.15; // Quiet sustain level
+      const releaseTime = 0.5; // Long release (piano sustain)
+
+      // Create main oscillator (fundamental frequency)
+      const osc1 = this.context.createOscillator();
+      const gain1 = this.context.createGain();
+
+      osc1.connect(gain1);
+      gain1.connect(this.context.destination);
+
+      osc1.frequency.value = frequency;
+      osc1.type = "triangle"; // Triangle wave for warmer tone
+
+      // Create second harmonic (2x frequency) for richness
+      const osc2 = this.context.createOscillator();
+      const gain2 = this.context.createGain();
+
+      osc2.connect(gain2);
+      gain2.connect(this.context.destination);
+
+      osc2.frequency.value = frequency * 2;
+      osc2.type = "triangle";
+      gain2.gain.setValueAtTime(0.1, now); // 10% of main volume
+
+      // Create third harmonic (3x frequency) for more complexity
+      const osc3 = this.context.createOscillator();
+      const gain3 = this.context.createGain();
+
+      osc3.connect(gain3);
+      gain3.connect(this.context.destination);
+
+      osc3.frequency.value = frequency * 3;
+      osc3.type = "sine";
+      gain3.gain.setValueAtTime(0.05, now); // 5% of main volume
+
+      // ADSR Envelope for main oscillator (more piano-like)
+      // Attack phase
+      gain1.gain.setValueAtTime(0, now);
+      gain1.gain.linearRampToValueAtTime(0.35, now + attackTime);
+
+      // Decay phase
+      gain1.gain.linearRampToValueAtTime(sustainLevel, now + attackTime + decayTime);
+
+      // Sustain phase (maintains until release)
+      const noteEndTime = now + duration;
+
+      // Release phase
+      gain1.gain.linearRampToValueAtTime(0, noteEndTime + releaseTime);
+
+      // Start all oscillators
+      osc1.start(now);
+      osc2.start(now);
+      osc3.start(now);
+
+      // Stop all oscillators with release time
+      osc1.stop(noteEndTime + releaseTime);
+      osc2.stop(noteEndTime + releaseTime);
+      osc3.stop(noteEndTime + releaseTime);
     },
 
     playErrorSound() {
