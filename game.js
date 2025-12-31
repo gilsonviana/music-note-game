@@ -96,14 +96,6 @@ const main = (debug = false) => {
     BPM: 90, // Beats per minute (4/4 time signature)
   };
 
-  // Input state
-  const input = {
-    up: false,
-    down: false,
-    left: false,
-    right: false,
-  };
-
   // Movement state
   const movement = {
     isMoving: false,
@@ -112,16 +104,16 @@ const main = (debug = false) => {
     nextPixelY: null,
   };
 
-  // Key to action mapping
-  const KEY_MAP = {
-    w: "up",
-    arrowup: "up",
-    s: "down",
-    arrowdown: "down",
-    a: "left",
-    arrowleft: "left",
-    d: "right",
-    arrowright: "right",
+  // Note key mapping (keyboard letters to grid Y position)
+  // Letters map to musical notes - some notes repeat at different octaves
+  const NOTE_KEY_MAP = {
+    "c": [6.5],        // C5
+    "d": [6.0],        // D5
+    "e": [5.5, 9.0],   // E5 and E4
+    "f": [5.0, 8.5],   // F5 and F4
+    "g": [8.0],        // G4
+    "a": [7.5],        // A4
+    "b": [7.0],        // B4
   };
 
   // Obstacles on the grid with monster images
@@ -208,6 +200,8 @@ const main = (debug = false) => {
   // Game state
   const gameState = {
     isGameOver: false,
+    isNoteKeyPressed: false, // Track if any note key is currently pressed
+    currentNoteGridY: null, // Track the Y position of the currently pressed note
   };
 
   /**
@@ -604,56 +598,6 @@ const main = (debug = false) => {
 
     // Update note display
     noteDisplay.update(delta);
-
-    // Handle input to start new movement if not already moving
-    if (!movement.isMoving) {
-      let newPixelX = player.pixelX;
-      let newPixelY = player.pixelY;
-      let isMoving = false;
-      const HALF_GRID = CONFIG.GRID_SIZE / 2; // 16 pixels
-
-      // Prioritize: no diagonal movement in grid-based games
-      if (input.up) {
-        newPixelY = Math.max(0, player.pixelY - HALF_GRID);
-        isMoving = true;
-      } else if (input.down) {
-        const maxPixelY = canvas.height - CONFIG.PLAYER_SIZE;
-        newPixelY = Math.min(maxPixelY, player.pixelY + HALF_GRID);
-        isMoving = true;
-      } else if (input.left && CONFIG.ENABLE_X_AXIS_MOVEMENT) {
-        newPixelX = Math.max(0, player.pixelX - HALF_GRID);
-        isMoving = true;
-      } else if (input.right && CONFIG.ENABLE_X_AXIS_MOVEMENT) {
-        const maxPixelX = canvas.width - CONFIG.PLAYER_SIZE;
-        newPixelX = Math.min(maxPixelX, player.pixelX + HALF_GRID);
-        isMoving = true;
-      }
-
-      // Start movement if input detected and position changed
-      if (
-        isMoving &&
-        (newPixelX !== player.pixelX || newPixelY !== player.pixelY)
-      ) {
-        const targetGridX = Math.round(newPixelX / CONFIG.GRID_SIZE);
-        const targetGridY = Math.round(newPixelY / CONFIG.GRID_SIZE);
-        const obstacle = getObstacleAt(targetGridX, targetGridY);
-
-        if (obstacle) {
-          // There's an obstacle at the target position, register collision
-          if (!obstacle.hasCollided) {
-            obstacle.hasCollided = true;
-            // Add points for collision
-            score.addPoints(CONFIG.COLLISION_POINTS_GAINED);
-          }
-        }
-
-        // Move the player regardless of obstacles
-        movement.isMoving = true;
-        movement.moveProgress = 0;
-        movement.nextPixelX = newPixelX;
-        movement.nextPixelY = newPixelY;
-      }
-    }
   };
 
   /**
@@ -710,38 +654,41 @@ const main = (debug = false) => {
       }
     }
 
-    // Draw player at interpolated position
-    const scale = playerAnimation.getScale();
-    const shake = playerAnimation.getShake();
-    const playerX = player.getPixelX() + shake.x;
-    const playerY = player.getPixelY() + shake.y;
+    // Draw player only if a note key is currently pressed
+    if (gameState.isNoteKeyPressed && gameState.currentNoteGridY !== null) {
+      const scale = playerAnimation.getScale();
+      const shake = playerAnimation.getShake();
+      const playerX = player.getPixelX() + shake.x;
+      // Position player at the Y position of the currently pressed note
+      const playerY = gameState.currentNoteGridY * CONFIG.GRID_SIZE + shake.y;
 
-    if (player.image && player.image.complete) {
-      // Apply scaling transformation
-      ctx.save();
-      const centerX = playerX + player.size / 2;
-      const centerY = playerY + player.size / 2;
-      ctx.translate(centerX, centerY);
-      ctx.scale(scale, scale);
-      ctx.translate(-centerX, -centerY);
+      if (player.image && player.image.complete) {
+        // Apply scaling transformation
+        ctx.save();
+        const centerX = playerX + player.size / 2;
+        const centerY = playerY + player.size / 2;
+        ctx.translate(centerX, centerY);
+        ctx.scale(scale, scale);
+        ctx.translate(-centerX, -centerY);
 
-      // Draw the player image
-      ctx.drawImage(player.image, playerX, playerY, player.size, player.size);
+        // Draw the player image
+        ctx.drawImage(player.image, playerX, playerY, player.size, player.size);
 
-      ctx.restore();
-    } else {
-      // Fallback to colored square if image not loaded
-      ctx.save();
-      const centerX = playerX + player.size / 2;
-      const centerY = playerY + player.size / 2;
-      ctx.translate(centerX, centerY);
-      ctx.scale(scale, scale);
-      ctx.translate(-centerX, -centerY);
+        ctx.restore();
+      } else {
+        // Fallback to colored square if image not loaded
+        ctx.save();
+        const centerX = playerX + player.size / 2;
+        const centerY = playerY + player.size / 2;
+        ctx.translate(centerX, centerY);
+        ctx.scale(scale, scale);
+        ctx.translate(-centerX, -centerY);
 
-      ctx.fillStyle = player.color;
-      ctx.fillRect(playerX, playerY, player.size, player.size);
+        ctx.fillStyle = player.color;
+        ctx.fillRect(playerX, playerY, player.size, player.size);
 
-      ctx.restore();
+        ctx.restore();
+      }
     }
 
     // Draw obstacles
@@ -866,6 +813,49 @@ const main = (debug = false) => {
   };
 
   /**
+   * Handle note key press - check for collision with obstacles at that note's Y position
+   */
+  const handleNoteKeyPress = (gridY) => {
+    const pixelY = gridY * CONFIG.GRID_SIZE;
+    const playerPixelX = player.getPixelX();
+    const tolerance = CONFIG.GRID_SIZE * 0.75; // Tolerance for collision detection
+
+    // Find obstacles at the player's X position and the note's Y position
+    obstacles.forEach((obs) => {
+      // Check if obstacle is within collision range on X axis
+      const dx = Math.abs(
+        playerPixelX + CONFIG.PLAYER_SIZE / 2 -
+        (obs.pixelX + CONFIG.GRID_SIZE / 2)
+      );
+
+      // Check if obstacle is at the correct Y position
+      const obsGridY = (obs.pixelY / CONFIG.GRID_SIZE).toFixed(1);
+      const targetGridY = gridY.toFixed(1);
+      const yMatch = obsGridY === targetGridY;
+
+      // Collision occurs when X overlaps and Y positions match
+      if (dx < tolerance && yMatch && !obs.hasCollided) {
+        obs.hasCollided = true;
+
+        // Add points for successful collision
+        score.addPoints(CONFIG.COLLISION_POINTS_GAINED);
+
+        // Play the musical note corresponding to the obstacle's Y position
+        audio.playNote(obs.pixelY);
+
+        // Display the note name on screen
+        noteDisplay.show(obs.pixelY);
+
+        // Start monster fade animation
+        obs.fadeAnimation.start();
+
+        // Trigger player collision animation
+        playerAnimation.start();
+      }
+    });
+  };
+
+  /**
    * Setup event listeners for input handling
    */
   const setupInputHandlers = () => {
@@ -875,23 +865,54 @@ const main = (debug = false) => {
         audio.context.resume();
       }
 
+      // Handle note keys (C, D, E, F, G, A, B)
+      const noteGridYValues = NOTE_KEY_MAP[e.key.toLowerCase()];
+      if (noteGridYValues !== undefined) {
+        // Mark that a note key is being pressed
+        gameState.isNoteKeyPressed = true;
+
+        // Find the Y position with an actual obstacle
+        const gridYArray = Array.isArray(noteGridYValues) ? noteGridYValues : [noteGridYValues];
+        let targetGridY = gridYArray[0]; // Default to first value
+
+        // Find obstacles at any of the note's Y positions
+        const obstaclesAtNote = obstacles.filter(obs => {
+          const obsGridY = (obs.pixelY / CONFIG.GRID_SIZE).toFixed(1);
+          return gridYArray.some(gridY => Math.abs(gridY - parseFloat(obsGridY)) < 0.1);
+        });
+
+        // If there are obstacles, use the Y position of the closest one
+        if (obstaclesAtNote.length > 0) {
+          const closestObstacle = obstaclesAtNote.reduce((closest, current) => {
+            return current.pixelX > closest.pixelX ? current : closest;
+          });
+          targetGridY = closestObstacle.pixelY / CONFIG.GRID_SIZE;
+        }
+
+        gameState.currentNoteGridY = targetGridY;
+
+        // Handle single values or arrays
+        const gridYs = Array.isArray(noteGridYValues) ? noteGridYValues : [noteGridYValues];
+        gridYs.forEach(gridY => handleNoteKeyPress(gridY));
+        e.preventDefault();
+        return;
+      }
+
       // Handle restart key
       if ((e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'R') && gameState.isGameOver) {
         restartGame();
         return;
       }
-
-      const action = KEY_MAP[e.key.toLowerCase()];
-      if (action) {
-        input[action] = true;
-        e.preventDefault(); // Prevent page scroll
-      }
     };
 
     const handleKeyUp = (e) => {
-      const action = KEY_MAP[e.key.toLowerCase()];
-      if (action) {
-        input[action] = false;
+      // Handle note keys (C, D, E, F, G, A, B)
+      const noteGridYValues = NOTE_KEY_MAP[e.key.toLowerCase()];
+      if (noteGridYValues !== undefined) {
+        // Mark that the note key is no longer pressed
+        gameState.isNoteKeyPressed = false;
+        gameState.currentNoteGridY = null;
+        e.preventDefault();
       }
     };
 
