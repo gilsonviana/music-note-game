@@ -145,14 +145,18 @@ const main = (debug = false) => {
     },
   };
 
-  // Score system
-  const score = {
-    current: 0,
+  // Lives system
+  const lives = {
+    current: 3,
+    max: 3,
     /**
-     * Add points to the score
+     * Lose a life
      */
-    addPoints(points) {
-      this.current += points;
+    loseLife() {
+      if (this.current > 0) {
+        this.current -= 1;
+      }
+      return this.isGameOver();
     },
     /**
      * Check if player has missed an obstacle
@@ -165,16 +169,32 @@ const main = (debug = false) => {
         !obstacle.hasCollided
       ) {
         obstacle.hasBeenAvoided = true;
-        this.addPoints(CONFIG.MISS_POINTS_LOST);
-        return true;
+        return this.loseLife();
       }
       return false;
     },
     /**
-     * Register a collision with an obstacle
+     * Check if game is over
      */
-    collision() {
-      this.addPoints(CONFIG.COLLISION_POINTS_GAINED);
+    isGameOver() {
+      return this.current <= 0;
+    },
+    /**
+     * Reset lives to initial state
+     */
+    reset() {
+      this.current = this.max;
+    },
+  };
+
+  // Score system
+  const score = {
+    current: 0,
+    /**
+     * Add points to the score
+     */
+    addPoints(points) {
+      this.current += points;
     },
     /**
      * Reset score to initial state
@@ -182,6 +202,11 @@ const main = (debug = false) => {
     reset() {
       this.current = 0;
     },
+  };
+
+  // Game state
+  const gameState = {
+    isGameOver: false,
   };
 
   /**
@@ -343,7 +368,9 @@ const main = (debug = false) => {
 
       if (collision && !obs.hasCollided) {
         obs.hasCollided = true;
-        score.collision();
+
+        // Add points for successful collision
+        score.addPoints(CONFIG.COLLISION_POINTS_GAINED);
 
         // Play the musical note corresponding to the obstacle's Y position
         audio.playNote(obs.pixelY);
@@ -491,7 +518,9 @@ const main = (debug = false) => {
       // Update fade animation
       obs.fadeAnimation.update(delta);
       // Check if player missed the obstacle
-      score.checkMiss(obs, player.pixelX);
+      if (lives.checkMiss(obs, player.pixelX)) {
+        gameState.isGameOver = true;
+      }
     });
 
     // Remove obstacles that went off-screen or finished fading
@@ -565,7 +594,8 @@ const main = (debug = false) => {
           // There's an obstacle at the target position, register collision
           if (!obstacle.hasCollided) {
             obstacle.hasCollided = true;
-            score.collision();
+            // Add points for collision
+            score.addPoints(CONFIG.COLLISION_POINTS_GAINED);
           }
         }
 
@@ -727,12 +757,27 @@ const main = (debug = false) => {
       ctx.restore();
     }
 
-    // Draw score
-    ctx.fillStyle = score.current < 0 ? "#FF0000" : "#000000";
+    // Draw lives and score
+    ctx.fillStyle = lives.current === 0 ? "#FF0000" : "#000000";
     ctx.font = "bold 24px Arial";
     ctx.textAlign = "right";
-    ctx.fillText(`Score: ${score.current}`, canvas.width - 20, 30);
+    ctx.fillText(`Lives: ${lives.current}/${lives.max}`, canvas.width - 20, 30);
+    ctx.fillText(`Score: ${score.current}`, canvas.width - 20, 60);
     ctx.textAlign = "left";
+
+    // Draw game over message
+    if (gameState.isGameOver) {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#FF0000";
+      ctx.font = "bold 72px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 60);
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 32px Arial";
+      ctx.fillText("Press R or click Restart to try again", canvas.width / 2, canvas.height / 2 + 40);
+    }
 
     // Draw position info for debugging
     if (debug) {
@@ -764,7 +809,9 @@ const main = (debug = false) => {
     // Cap delta time to prevent large jumps (e.g., if tab was inactive)
     const cappedDelta = Math.min(delta, 0.016); // ~60fps
 
-    update(cappedDelta);
+    if (!gameState.isGameOver) {
+      update(cappedDelta);
+    }
     render();
 
     requestAnimationFrame(loop);
@@ -775,6 +822,12 @@ const main = (debug = false) => {
    */
   const setupInputHandlers = () => {
     const handleKeyDown = (e) => {
+      // Handle restart key
+      if ((e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'R') && gameState.isGameOver) {
+        restartGame();
+        return;
+      }
+
       const action = KEY_MAP[e.key.toLowerCase()];
       if (action) {
         input[action] = true;
@@ -829,8 +882,14 @@ const main = (debug = false) => {
    * Restart the game
    */
   const restartGame = () => {
+    // Reset lives
+    lives.reset();
+
     // Reset score
     score.reset();
+
+    // Clear game over state
+    gameState.isGameOver = false;
 
     // Clear obstacles
     obstacles.length = 0;
