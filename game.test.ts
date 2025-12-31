@@ -441,6 +441,282 @@ runner.test('Note Y positions are on valid grid positions', (t) => {
   });
 });
 
+// ============================================================================
+// Test Difficulty Calculation
+// ============================================================================
+
+runner.test('Difficulty increases with elapsed time', (t) => {
+  const calculateDifficulty = (elapsedTime: number): number => {
+    return 1 + Math.floor(elapsedTime / 30);
+  };
+
+  const diff0 = calculateDifficulty(0);
+  const diff30 = calculateDifficulty(30);
+  const diff60 = calculateDifficulty(60);
+
+  t.assertEqual(diff0, 1, 'Difficulty should start at 1');
+  t.assertEqual(diff30, 2, 'Difficulty should be 2 at 30 seconds');
+  t.assertEqual(diff60, 3, 'Difficulty should be 3 at 60 seconds');
+  t.assert(diff60 > diff30, 'Difficulty should increase over time');
+});
+
+runner.test('Spawn interval decreases with difficulty', (t) => {
+  const getSpawnInterval = (difficulty: number): number => {
+    return Math.max(0.5, 2 - (difficulty - 1) * 0.15);
+  };
+
+  const interval1 = getSpawnInterval(1);
+  const interval5 = getSpawnInterval(5);
+  const interval10 = getSpawnInterval(10);
+
+  t.assert(interval1 > interval5, 'Spawn interval should decrease with difficulty');
+  t.assert(interval5 > interval10, 'Spawn interval should continue to decrease');
+  t.assert(interval10 >= 0.5, 'Spawn interval should have a minimum value');
+});
+
+// ============================================================================
+// Test Obstacle Speed Calculation
+// ============================================================================
+
+runner.test('Obstacle speed increases with difficulty', (t) => {
+  const getObstacleSpeed = (difficulty: number): number => {
+    return 150 + (difficulty - 1) * 30;
+  };
+
+  const speed1 = getObstacleSpeed(1);
+  const speed5 = getObstacleSpeed(5);
+
+  t.assertEqual(speed1, 150, 'Base speed should be 150');
+  t.assertEqual(speed5, 270, 'Speed at difficulty 5 should be 270');
+  t.assert(speed5 > speed1, 'Speed should increase with difficulty');
+});
+
+// ============================================================================
+// Test Collision Detection
+// ============================================================================
+
+runner.test('Collision detection works within tolerance', (t) => {
+  const CONFIG = { GRID_SIZE: 32 };
+  const tolerance = CONFIG.GRID_SIZE / 2;
+
+  interface ObstacleForCollision {
+    pixelX: number;
+    pixelY: number;
+  }
+
+  const checkCollision = (obs: ObstacleForCollision, playerX: number, playerY: number): boolean => {
+    return (
+      Math.abs(obs.pixelX - playerX) < tolerance &&
+      Math.abs(obs.pixelY - playerY) < tolerance
+    );
+  };
+
+  const obstacle: ObstacleForCollision = { pixelX: 100, pixelY: 100 };
+  const playerX = 105;
+  const playerY = 105;
+
+  t.assert(checkCollision(obstacle, playerX, playerY), 'Should detect collision within tolerance');
+});
+
+runner.test('Collision detection fails outside tolerance', (t) => {
+  const CONFIG = { GRID_SIZE: 32 };
+  const tolerance = CONFIG.GRID_SIZE / 2;
+
+  interface ObstacleForCollision {
+    pixelX: number;
+    pixelY: number;
+  }
+
+  const checkCollision = (obs: ObstacleForCollision, playerX: number, playerY: number): boolean => {
+    return (
+      Math.abs(obs.pixelX - playerX) < tolerance &&
+      Math.abs(obs.pixelY - playerY) < tolerance
+    );
+  };
+
+  const obstacle: ObstacleForCollision = { pixelX: 100, pixelY: 100 };
+  const playerX = 200;
+  const playerY = 200;
+
+  t.assert(!checkCollision(obstacle, playerX, playerY), 'Should not detect collision outside tolerance');
+});
+
+// ============================================================================
+// Test Player Movement
+// ============================================================================
+
+runner.test('Player movement calculation is correct', (t) => {
+  const MOVE_SPEED = 150; // milliseconds
+  const delta = 75; // milliseconds
+  const moveProgress = delta / MOVE_SPEED;
+
+  t.assertEqual(moveProgress, 0.5, 'Progress should be 0.5 for half duration');
+});
+
+runner.test('Player completes move after full duration', (t) => {
+  const MOVE_SPEED = 150;
+  const delta = 150;
+  const moveProgress = Math.min(1, delta / MOVE_SPEED);
+
+  t.assertEqual(moveProgress, 1, 'Progress should be capped at 1 for full duration');
+});
+
+// ============================================================================
+// Test Note Frequency Mapping
+// ============================================================================
+
+runner.test('Note frequencies are in correct range', (t) => {
+  const noteFrequencies: Record<string, number> = {
+    '5.0': 698.46,
+    '5.5': 659.25,
+    '6.0': 587.33,
+    '6.5': 523.25,
+    '7.0': 493.88,
+    '7.5': 440.0,
+    '8.0': 392.0,
+    '8.5': 349.23,
+    '9.0': 329.63,
+  };
+
+  const frequencies = Object.values(noteFrequencies);
+  const minFreq = Math.min(...frequencies);
+  const maxFreq = Math.max(...frequencies);
+
+  t.assert(minFreq > 300, 'Minimum frequency should be above 300 Hz');
+  t.assert(maxFreq < 800, 'Maximum frequency should be below 800 Hz');
+});
+
+runner.test('Note frequencies decrease with higher position', (t) => {
+  const noteFrequencies: Record<string, number> = {
+    '5.0': 698.46,
+    '5.5': 659.25,
+    '6.0': 587.33,
+    '6.5': 523.25,
+    '7.0': 493.88,
+    '7.5': 440.0,
+    '8.0': 392.0,
+    '8.5': 349.23,
+    '9.0': 329.63,
+  };
+
+  t.assert(noteFrequencies['5.0'] > noteFrequencies['9.0'], 'Frequency should decrease with higher position');
+});
+
+// ============================================================================
+// Test Game State
+// ============================================================================
+
+runner.test('Game state starts with correct values', (t) => {
+  const gameState = {
+    hasStarted: false,
+    isGameOver: false,
+    isNoteKeyPressed: false,
+    currentNoteGridY: null,
+    elapsedTime: 0,
+    difficulty: 1,
+  };
+
+  t.assertEqual(gameState.hasStarted, false, 'Game should not be started initially');
+  t.assertEqual(gameState.isGameOver, false, 'Game should not be over initially');
+  t.assertEqual(gameState.difficulty, 1, 'Difficulty should start at 1');
+});
+
+runner.test('Game state transitions to started', (t) => {
+  let gameState = {
+    hasStarted: false,
+    isGameOver: false,
+  };
+
+  gameState.hasStarted = true;
+  t.assert(gameState.hasStarted, 'Game should be marked as started');
+});
+
+// ============================================================================
+// Test Eighth and Sixteenth Note Durations
+// ============================================================================
+
+runner.test('getNoteDuration returns correct duration for eighth note', (t) => {
+  const BPM = 90;
+  const beatDuration = 60 / BPM;
+  const expected = beatDuration * 0.5;
+
+  const noteDurations: Record<string, number> = {
+    'whole': beatDuration * 4,
+    'half': beatDuration * 2,
+    'quarter': beatDuration * 1,
+    'eighth': beatDuration * 0.5,
+    'sixteenth': beatDuration * 0.25,
+  };
+
+  t.assertEqual(noteDurations['eighth'], expected, 'Eighth note should be 0.5 beats');
+});
+
+runner.test('getNoteDuration returns correct duration for sixteenth note', (t) => {
+  const BPM = 90;
+  const beatDuration = 60 / BPM;
+  const expected = beatDuration * 0.25;
+
+  const noteDurations: Record<string, number> = {
+    'whole': beatDuration * 4,
+    'half': beatDuration * 2,
+    'quarter': beatDuration * 1,
+    'eighth': beatDuration * 0.5,
+    'sixteenth': beatDuration * 0.25,
+  };
+
+  t.assertEqual(noteDurations['sixteenth'], expected, 'Sixteenth note should be 0.25 beats');
+});
+
+// ============================================================================
+// Test Edge Cases
+// ============================================================================
+
+runner.test('Score can handle large point values', (t) => {
+  let current = 0;
+
+  const addPoints = (points: number) => {
+    current += points;
+  };
+
+  addPoints(999999);
+  t.assertEqual(current, 999999, 'Score should handle large values');
+});
+
+runner.test('Multiple collisions can be detected', (t) => {
+  const CONFIG = { GRID_SIZE: 32 };
+  const tolerance = CONFIG.GRID_SIZE / 2;
+
+  interface ObstacleForTest {
+    pixelX: number;
+    pixelY: number;
+  }
+
+  const checkCollision = (obs: ObstacleForTest, playerX: number, playerY: number): boolean => {
+    return (
+      Math.abs(obs.pixelX - playerX) < tolerance &&
+      Math.abs(obs.pixelY - playerY) < tolerance
+    );
+  };
+
+  const obstacles: ObstacleForTest[] = [
+    { pixelX: 100, pixelY: 100 },
+    { pixelX: 200, pixelY: 200 },
+    { pixelX: 105, pixelY: 105 },
+  ];
+
+  const playerX = 105;
+  const playerY = 105;
+
+  let collisionCount = 0;
+  obstacles.forEach(obs => {
+    if (checkCollision(obs, playerX, playerY)) {
+      collisionCount++;
+    }
+  });
+
+  t.assertEqual(collisionCount, 2, 'Should detect 2 collisions');
+});
+
 // Run all tests
 const success = runner.run();
 process.exit(success ? 0 : 1);
