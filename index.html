@@ -6,7 +6,39 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <canvas id="game" width="640" height="480"></canvas>
+  <div class="container">
+    <div class="sidebar">
+      <h2>Player Note</h2>
+      <div class="note-selector">
+        <label class="note-option">
+          <input type="radio" name="player-note" value="whole" />
+          <img src="assets/MusicIcons/whole-note.png" alt="Whole Note" />
+          <span>Whole</span>
+        </label>
+        <label class="note-option">
+          <input type="radio" name="player-note" value="half" checked />
+          <img src="assets/MusicIcons/half-note.png" alt="Half Note" />
+          <span>Half</span>
+        </label>
+        <label class="note-option">
+          <input type="radio" name="player-note" value="quarter" />
+          <img src="assets/MusicIcons/quarter-note.png" alt="Quarter Note" />
+          <span>Quarter</span>
+        </label>
+        <label class="note-option">
+          <input type="radio" name="player-note" value="eighth" />
+          <img src="assets/MusicIcons/eighth-note.png" alt="Eighth Note" />
+          <span>Eighth</span>
+        </label>
+        <label class="note-option">
+          <input type="radio" name="player-note" value="sixteenth" />
+          <img src="assets/MusicIcons/sixteenth-note.png" alt="Sixteenth Note" />
+          <span>Sixteenth</span>
+        </label>
+      </div>
+    </div>
+    <canvas id="game" width="640" height="480"></canvas>
+  </div>
   <script src="game.js"></script>
 </body>
 </html>

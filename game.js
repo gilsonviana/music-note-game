@@ -43,6 +43,38 @@ const main = (debug = false) => {
   let canvas, ctx;
   let lastTime = 0;
 
+  // Get selected player note value from UI
+  const getSelectedPlayerNote = () => {
+    const radio = document.querySelector('input[name="player-note"]:checked');
+    return radio ? radio.value : 'half';
+  };
+
+  // Get player note icon path
+  const getPlayerNoteIcon = (noteValue) => {
+    const noteIcons = {
+      'whole': 'assets/MusicIcons/whole-note.png',
+      'half': 'assets/MusicIcons/half-note.png',
+      'quarter': 'assets/MusicIcons/quarter-note.png',
+      'eighth': 'assets/MusicIcons/eighth-note.png',
+      'sixteenth': 'assets/MusicIcons/sixteenth-note.png',
+    };
+    return noteIcons[noteValue] || noteIcons['half'];
+  };
+
+  // Get note duration in seconds based on note value
+  // 4/4 time at X BPM: 1 beat = 60 / BPM seconds
+  const getNoteDuration = (noteValue) => {
+    const beatDuration = 60 / CONFIG.BPM;
+    const noteDurations = {
+      'whole': beatDuration * 4,      // 4 beats
+      'half': beatDuration * 2,       // 2 beats
+      'quarter': beatDuration * 1,    // 1 beat
+      'eighth': beatDuration * 0.5,   // 0.5 beats
+      'sixteenth': beatDuration * 0.25, // 0.25 beats
+    };
+    return noteDurations[noteValue] || noteDurations['quarter'];
+  };
+
   // Game configuration
   const CONFIG = {
     GRID_SIZE: 32, // Size of each grid cell in pixels
@@ -56,6 +88,7 @@ const main = (debug = false) => {
     COLLISION_POINTS_GAINED: 100, // Points gained on collision
     MISS_POINTS_LOST: -50, // Points lost for missing an obstacle
     ENABLE_X_AXIS_MOVEMENT: false, // Enable/disable left-right movement
+    BPM: 90, // Beats per minute (4/4 time signature)
   };
 
   // Input state
@@ -200,8 +233,11 @@ const main = (debug = false) => {
       }
     },
 
-    playNote(pixelY, duration = 0.2) {
+    playNote(pixelY, noteDuration = null) {
       if (!this.context) return;
+
+      // Use provided duration or default to player's current note duration
+      const duration = noteDuration !== null ? noteDuration : getNoteDuration(player.noteValue);
 
       // Convert pixel Y to grid Y (including half positions)
       const gridY = pixelY / CONFIG.GRID_SIZE;
@@ -313,8 +349,9 @@ const main = (debug = false) => {
     pixelX: CONFIG.PLAYER_INITIAL_GRID_X * CONFIG.GRID_SIZE,
     pixelY: CONFIG.PLAYER_INITIAL_GRID_Y * CONFIG.GRID_SIZE,
     size: CONFIG.PLAYER_SIZE,
-    imagePath: "assets/MusicIcons/half-note.png",
+    imagePath: getPlayerNoteIcon(getSelectedPlayerNote()),
     image: null,
+    noteValue: getSelectedPlayerNote(),
     // Get grid X (for compatibility)
     get gridX() {
       return Math.round(this.pixelX / CONFIG.GRID_SIZE);
@@ -341,6 +378,16 @@ const main = (debug = false) => {
         );
       }
       return this.pixelY;
+    },
+    // Update player note based on UI selection
+    updateNoteValue() {
+      const selectedNote = getSelectedPlayerNote();
+      if (selectedNote !== this.noteValue) {
+        this.noteValue = selectedNote;
+        this.imagePath = getPlayerNoteIcon(selectedNote);
+        // Mark image as needing reload
+        this.image = null;
+      }
     },
   };
 
@@ -395,6 +442,11 @@ const main = (debug = false) => {
    * @param {number} delta - Time elapsed since last frame in seconds
    */
   const update = (delta) => {
+    // Check if player image needs to be reloaded (when note value changes)
+    if (player.image === null && player.imagePath) {
+      loadPlayerImage();
+    }
+
     // Spawn new obstacles
     obstacleSpawner.timeSinceLastSpawn += delta;
     if (obstacleSpawner.timeSinceLastSpawn >= CONFIG.OBSTACLE_SPAWN_INTERVAL) {
@@ -705,6 +757,15 @@ const main = (debug = false) => {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+
+    // Setup player note selector listeners
+    const playerNoteRadios = document.querySelectorAll('input[name="player-note"]');
+    playerNoteRadios.forEach((radio) => {
+      radio.addEventListener("change", (e) => {
+        player.updateNoteValue();
+        console.log(`Player note changed to: ${e.target.value}`);
+      });
+    });
 
     // Store handlers for cleanup
     return { handleKeyDown, handleKeyUp };

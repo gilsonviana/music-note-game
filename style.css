@@ -5,7 +5,69 @@ body {
   justify-content: center;
   align-items: center;
   height: 100vh;
+  font-family: Arial, sans-serif;
 }
+
+.container {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.sidebar {
+  background: #222;
+  padding: 20px;
+  border-radius: 8px;
+  min-width: 150px;
+}
+
+.sidebar h2 {
+  margin: 0 0 15px 0;
+  color: #fff;
+  font-size: 16px;
+  text-align: center;
+}
+
+.note-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  user-select: none;
+}
+
+.note-option:hover {
+  background-color: #333;
+}
+
+.note-option input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #4CAF50;
+}
+
+.note-option img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.note-option span {
+  color: #ccc;
+  font-size: 12px;
+  flex: 1;
+}
+
 canvas {
   background: #222;
   image-rendering: pixelated;
