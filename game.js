@@ -15,7 +15,7 @@ const obstacleGenerator = (
     fadeAnimation: {
       isAnimating: false,
       progress: 0, // 0 to 1
-      duration: 0.4, // Fade duration in seconds
+      duration: 0.5, // Explosion duration in seconds
       start() {
         this.isAnimating = true;
         this.progress = 0;
@@ -36,8 +36,29 @@ const obstacleGenerator = (
       },
       getScale() {
         if (!this.isAnimating) return 1;
-        // Scale down from 1 to 0 as progress goes from 0 to 1
-        return Math.max(0, 1 - this.progress);
+        // Explosion effect: scale up then down
+        const explosionPhase = this.progress;
+        if (explosionPhase < 0.3) {
+          // Expand outward in first 30% of animation
+          return 1 + explosionPhase * 0.5;
+        } else {
+          // Shrink to 0 in remaining 70%
+          return Math.max(0, 1.15 - this.progress * 2.3);
+        }
+      },
+      getRotation() {
+        if (!this.isAnimating) return 0;
+        // Spin rapidly during explosion
+        return this.progress * Math.PI * 4; // 2 full rotations
+      },
+      getShake() {
+        if (!this.isAnimating) return { x: 0, y: 0 };
+        // Random shake/wobble effect that decreases over time
+        const shakeAmount = (1 - this.progress) * 8;
+        return {
+          x: (Math.random() - 0.5) * shakeAmount,
+          y: (Math.random() - 0.5) * shakeAmount,
+        };
       },
     },
   };
@@ -815,23 +836,26 @@ const main = (debug = false) => {
     obstacles.forEach((obs) => {
       const alpha = obs.fadeAnimation.getAlpha();
       const scale = obs.fadeAnimation.getScale();
+      const rotation = obs.fadeAnimation.getRotation();
+      const shake = obs.fadeAnimation.getShake();
 
       if (obs.image && obs.image.complete) {
-        // Draw the monster image with fade and scale effects
+        // Draw the monster image with explosion effects
         ctx.save();
         ctx.globalAlpha = alpha;
 
-        // Apply scaling transformation
-        const centerX = obs.pixelX + CONFIG.GRID_SIZE / 2;
-        const centerY = obs.pixelY + CONFIG.GRID_SIZE / 2;
+        // Apply transformations
+        const centerX = obs.pixelX + CONFIG.GRID_SIZE / 2 + shake.x;
+        const centerY = obs.pixelY + CONFIG.GRID_SIZE / 2 + shake.y;
         ctx.translate(centerX, centerY);
+        ctx.rotate(rotation);
         ctx.scale(scale, scale);
-        ctx.translate(-centerX, -centerY);
+        ctx.translate(-CONFIG.GRID_SIZE / 2, -CONFIG.GRID_SIZE / 2);
 
         ctx.drawImage(
           obs.image,
-          obs.pixelX,
-          obs.pixelY,
+          0,
+          0,
           CONFIG.GRID_SIZE,
           CONFIG.GRID_SIZE
         );
@@ -841,17 +865,18 @@ const main = (debug = false) => {
         ctx.save();
         ctx.globalAlpha = alpha;
 
-        // Apply scaling transformation
-        const centerX = obs.pixelX + CONFIG.GRID_SIZE / 2;
-        const centerY = obs.pixelY + CONFIG.GRID_SIZE / 2;
+        // Apply transformations
+        const centerX = obs.pixelX + CONFIG.GRID_SIZE / 2 + shake.x;
+        const centerY = obs.pixelY + CONFIG.GRID_SIZE / 2 + shake.y;
         ctx.translate(centerX, centerY);
+        ctx.rotate(rotation);
         ctx.scale(scale, scale);
-        ctx.translate(-centerX, -centerY);
+        ctx.translate(-CONFIG.GRID_SIZE / 2, -CONFIG.GRID_SIZE / 2);
 
         ctx.fillStyle = "#FF6B6B";
         ctx.fillRect(
-          obs.pixelX,
-          obs.pixelY,
+          0,
+          0,
           CONFIG.GRID_SIZE,
           CONFIG.GRID_SIZE
         );
