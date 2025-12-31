@@ -1,26 +1,178 @@
+// Type definitions for the game
+
+interface ObstacleGenerator {
+  pixelX: number;
+  pixelY: number;
+  imagePath: string | null;
+  image: HTMLImageElement | null;
+  speed: number;
+  hasBeenAvoided: boolean;
+  hasCollided: boolean;
+  fadeAnimation: FadeAnimation;
+}
+
+interface FadeAnimation {
+  isAnimating: boolean;
+  progress: number;
+  duration: number;
+  start(): void;
+  update(delta: number): void;
+  getAlpha(): number;
+  getScale(): number;
+  getRotation(): number;
+  getShake(): { x: number; y: number };
+}
+
+interface UIState {
+  selectedNote: 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth';
+  noteImages: Record<string, HTMLImageElement>;
+  isMuted: boolean;
+}
+
+interface Movement {
+  isMoving: boolean;
+  moveProgress: number;
+  nextPixelX: number | null;
+  nextPixelY: number | null;
+}
+
+interface Config {
+  GRID_SIZE: number;
+  PLAYER_SIZE: number;
+  MOVE_SPEED: number;
+  PLAYER_INITIAL_GRID_X: number;
+  PLAYER_INITIAL_GRID_Y: number;
+  OBSTACLE_SPEED: number;
+  OBSTACLE_SPAWN_INTERVAL: number;
+  OBSTACLE_SPAWN_Y: number;
+  COLLISION_POINTS_GAINED: number;
+  MISS_POINTS_LOST: number;
+  ENABLE_X_AXIS_MOVEMENT: boolean;
+  BPM: number;
+}
+
+interface NoteKeyMap {
+  [key: string]: number[];
+}
+
+interface ObstacleSpawner {
+  timeSinceLastSpawn: number;
+  monsterImages: string[];
+  currentImageIndex: number;
+  getNextImage(): string;
+}
+
+interface Lives {
+  current: number;
+  max: number;
+  loseLife(): boolean;
+  checkMiss(obstacle: ObstacleGenerator, playerX: number, overlayStartX: number): boolean;
+  isGameOver(): boolean;
+  reset(): void;
+}
+
+interface Score {
+  current: number;
+  addPoints(points: number): void;
+  reset(): void;
+}
+
+interface GameState {
+  hasStarted: boolean;
+  isGameOver: boolean;
+  isNoteKeyPressed: boolean;
+  currentNoteGridY: number | null;
+  elapsedTime: number;
+  difficulty: number;
+}
+
+interface UILayout {
+  sidebarWidth: number;
+  noteIconSize: number;
+  noteSpacing: number;
+  startY: number;
+  muteButtonY: number;
+  muteButtonWidth: number;
+  muteButtonHeight: number;
+}
+
+interface Player {
+  color: string;
+  pixelX: number;
+  pixelY: number;
+  size: number;
+  imagePath: string;
+  image: HTMLImageElement | null;
+  noteValue: 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth';
+  readonly gridX: number;
+  readonly gridY: number;
+  getPixelX(): number;
+  getPixelY(): number;
+  updateNoteValue(): void;
+}
+
+interface PlayerAnimation {
+  isAnimating: boolean;
+  progress: number;
+  duration: number;
+  start(): void;
+  update(delta: number): void;
+  getScale(): number;
+  getShake(): { x: number; y: number };
+}
+
+interface TrebleClef {
+  imagePath: string;
+  image: HTMLImageElement | null;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface Audio {
+  context: AudioContext | null;
+  isMuted: boolean;
+  noteFrequencies: Record<string, number>;
+  noteNames: Record<string, string>;
+  init(): void;
+  playNote(pixelY: number, noteDuration?: number | null): void;
+  playErrorSound(): void;
+  toggleMute(): boolean;
+}
+
+interface NoteDisplay {
+  noteName: string | null;
+  displayTime: number;
+  displayDuration: number;
+  show(pixelY: number): void;
+  update(delta: number): void;
+  getAlpha(): number;
+}
+
 const obstacleGenerator = (
-  pixelX = 0,
-  pixelY = 0,
-  imagePath = null,
-  speed = 100
-) => {
+  pixelX: number = 0,
+  pixelY: number = 0,
+  imagePath: string | null = null,
+  speed: number = 100
+): ObstacleGenerator => {
   return {
     pixelX,
     pixelY,
     imagePath,
     image: null,
     speed,
-    hasBeenAvoided: false, // Track if player has avoided this obstacle
-    hasCollided: false, // Track if player has collided with this obstacle
+    hasBeenAvoided: false,
+    hasCollided: false,
     fadeAnimation: {
       isAnimating: false,
-      progress: 0, // 0 to 1
-      duration: 0.5, // Explosion duration in seconds
-      start() {
+      progress: 0,
+      duration: 0.5,
+      start(this: FadeAnimation) {
         this.isAnimating = true;
         this.progress = 0;
       },
-      update(delta) {
+      update(this: FadeAnimation, delta: number) {
         if (this.isAnimating) {
           this.progress += delta / this.duration;
           if (this.progress >= 1) {
@@ -29,31 +181,25 @@ const obstacleGenerator = (
           }
         }
       },
-      getAlpha() {
+      getAlpha(this: FadeAnimation): number {
         if (!this.isAnimating) return 1;
-        // Fade out as progress goes from 0 to 1
         return Math.max(0, 1 - this.progress);
       },
-      getScale() {
+      getScale(this: FadeAnimation): number {
         if (!this.isAnimating) return 1;
-        // Explosion effect: scale up then down
         const explosionPhase = this.progress;
         if (explosionPhase < 0.3) {
-          // Expand outward in first 30% of animation
           return 1 + explosionPhase * 0.5;
         } else {
-          // Shrink to 0 in remaining 70%
           return Math.max(0, 1.15 - this.progress * 2.3);
         }
       },
-      getRotation() {
+      getRotation(this: FadeAnimation): number {
         if (!this.isAnimating) return 0;
-        // Spin rapidly during explosion
-        return this.progress * Math.PI * 4; // 2 full rotations
+        return this.progress * Math.PI * 4;
       },
-      getShake() {
+      getShake(this: FadeAnimation): { x: number; y: number } {
         if (!this.isAnimating) return { x: 0, y: 0 };
-        // Random shake/wobble effect that decreases over time
         const shakeAmount = (1 - this.progress) * 8;
         return {
           x: (Math.random() - 0.5) * shakeAmount,
@@ -64,125 +210,115 @@ const obstacleGenerator = (
   };
 };
 
-const main = (debug = false) => {
+const main = (debug: boolean = false): void => {
   // DOM and Canvas elements
-  let canvas, ctx;
-  let lastTime = 0;
+  let canvas: HTMLCanvasElement;
+  let ctx: CanvasRenderingContext2D;
+  let lastTime: number = 0;
 
   // UI state
-  const uiState = {
-    selectedNote: "half",
+  const uiState: UIState = {
+    selectedNote: 'half',
     noteImages: {},
     isMuted: false,
   };
 
   // Get selected player note value from UI
-  const getSelectedPlayerNote = () => {
+  const getSelectedPlayerNote = (): 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth' => {
     return uiState.selectedNote;
   };
 
   // Get player note icon path
-  const getPlayerNoteIcon = (noteValue) => {
-    const noteIcons = {
-      whole: "assets/MusicIcons/whole-note.png",
-      half: "assets/MusicIcons/half-note.png",
-      quarter: "assets/MusicIcons/quarter-note.png",
-      eighth: "assets/MusicIcons/eighth-note.png",
-      sixteenth: "assets/MusicIcons/sixteenth-note.png",
+  const getPlayerNoteIcon = (noteValue: 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'): string => {
+    const noteIcons: Record<'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth', string> = {
+      whole: 'assets/MusicIcons/whole-note.png',
+      half: 'assets/MusicIcons/half-note.png',
+      quarter: 'assets/MusicIcons/quarter-note.png',
+      eighth: 'assets/MusicIcons/eighth-note.png',
+      sixteenth: 'assets/MusicIcons/sixteenth-note.png',
     };
-    return noteIcons[noteValue] || noteIcons["half"];
+    return noteIcons[noteValue] || noteIcons['half'];
   };
 
   // Get note duration in seconds based on note value
-  // 4/4 time at X BPM: 1 beat = 60 / BPM seconds
-  const getNoteDuration = (noteValue) => {
+  const getNoteDuration = (noteValue: 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'): number => {
     const beatDuration = 60 / CONFIG.BPM;
-    const noteDurations = {
-      whole: beatDuration * 4, // 4 beats
-      half: beatDuration * 2, // 2 beats
-      quarter: beatDuration * 1, // 1 beat
-      eighth: beatDuration * 0.5, // 0.5 beats
-      sixteenth: beatDuration * 0.25, // 0.25 beats
+    const noteDurations: Record<'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth', number> = {
+      whole: beatDuration * 4,
+      half: beatDuration * 2,
+      quarter: beatDuration * 1,
+      eighth: beatDuration * 0.5,
+      sixteenth: beatDuration * 0.25,
     };
-    return noteDurations[noteValue] || noteDurations["quarter"];
+    return noteDurations[noteValue] || noteDurations['quarter'];
   };
 
   // Game configuration
-  const CONFIG = {
-    GRID_SIZE: 32, // Size of each grid cell in pixels
+  const CONFIG: Config = {
+    GRID_SIZE: 32,
     PLAYER_SIZE: 32,
-    MOVE_SPEED: 0.15, // Seconds to move one grid cell
+    MOVE_SPEED: 0.15,
     PLAYER_INITIAL_GRID_X: 4,
     PLAYER_INITIAL_GRID_Y: 4,
-    OBSTACLE_SPEED: 150, // pixels per second (moving left)
-    OBSTACLE_SPAWN_INTERVAL: 2, // seconds between spawning obstacles
-    OBSTACLE_SPAWN_Y: 5, // Grid Y position where obstacles spawn
-    COLLISION_POINTS_GAINED: 100, // Points gained on collision
-    MISS_POINTS_LOST: -50, // Points lost for missing an obstacle
-    ENABLE_X_AXIS_MOVEMENT: false, // Enable/disable left-right movement
-    BPM: 90, // Beats per minute (4/4 time signature)
+    OBSTACLE_SPEED: 150,
+    OBSTACLE_SPAWN_INTERVAL: 2,
+    OBSTACLE_SPAWN_Y: 5,
+    COLLISION_POINTS_GAINED: 100,
+    MISS_POINTS_LOST: -50,
+    ENABLE_X_AXIS_MOVEMENT: false,
+    BPM: 90,
   };
 
   // Movement state
-  const movement = {
+  const movement: Movement = {
     isMoving: false,
-    moveProgress: 0, // 0 to 1, how far through current move we are
+    moveProgress: 0,
     nextPixelX: null,
     nextPixelY: null,
   };
 
-  // Note key mapping (keyboard letters to grid Y position)
-  // Letters map to musical notes - some notes repeat at different octaves
-  const NOTE_KEY_MAP = {
-    c: [6.5], // C5
-    d: [6.0], // D5
-    e: [5.5, 9.0], // E5 and E4
-    f: [5.0, 8.5], // F5 and F4
-    g: [8.0], // G4
-    a: [7.5], // A4
-    b: [7.0], // B4
+  // Note key mapping
+  const NOTE_KEY_MAP: NoteKeyMap = {
+    c: [6.5],
+    d: [6.0],
+    e: [5.5, 9.0],
+    f: [5.0, 8.5],
+    g: [8.0],
+    a: [7.5],
+    b: [7.0],
   };
 
-  // Obstacles on the grid with monster images
-  const obstacles = [];
+  // Obstacles on the grid
+  const obstacles: ObstacleGenerator[] = [];
 
   // Obstacle spawning state
-  const obstacleSpawner = {
+  const obstacleSpawner: ObstacleSpawner = {
     timeSinceLastSpawn: 0,
     monsterImages: [
-      "assets/MonsterIcons/monster.png",
-      "assets/MonsterIcons/monster (1).png",
-      "assets/MonsterIcons/monster (2).png",
-      "assets/MonsterIcons/monster (3).png",
+      'assets/MonsterIcons/monster.png',
+      'assets/MonsterIcons/monster (1).png',
+      'assets/MonsterIcons/monster (2).png',
+      'assets/MonsterIcons/monster (3).png',
     ],
     currentImageIndex: 0,
-    getNextImage() {
+    getNextImage(this: ObstacleSpawner): string {
       const img = this.monsterImages[this.currentImageIndex];
-      this.currentImageIndex =
-        (this.currentImageIndex + 1) % this.monsterImages.length;
+      this.currentImageIndex = (this.currentImageIndex + 1) % this.monsterImages.length;
       return img;
     },
   };
 
   // Lives system
-  const lives = {
+  const lives: Lives = {
     current: 5,
     max: 5,
-    /**
-     * Lose a life
-     */
-    loseLife() {
+    loseLife(this: Lives): boolean {
       if (this.current > 0) {
         this.current -= 1;
       }
       return this.isGameOver();
     },
-    /**
-     * Check if player has missed an obstacle
-     */
-    checkMiss(obstacle, playerX, overlayStartX) {
-      // If obstacle has completely moved past the overlay (on the left side) and hasn't been hit
-      // The whole obstacle is considered past when its right edge goes beyond overlayStartX
+    checkMiss(this: Lives, obstacle: ObstacleGenerator, playerX: number, overlayStartX: number): boolean {
       if (
         obstacle.pixelX + CONFIG.GRID_SIZE < overlayStartX &&
         !obstacle.hasBeenAvoided &&
@@ -190,53 +326,41 @@ const main = (debug = false) => {
       ) {
         obstacle.hasBeenAvoided = true;
         this.loseLife();
-        return true; // Return true to indicate a miss occurred
+        return true;
       }
       return false;
     },
-    /**
-     * Check if game is over
-     */
-    isGameOver() {
+    isGameOver(this: Lives): boolean {
       return this.current <= 0;
     },
-    /**
-     * Reset lives to initial state
-     */
-    reset() {
+    reset(this: Lives): void {
       this.current = this.max;
     },
   };
 
   // Score system
-  const score = {
+  const score: Score = {
     current: 0,
-    /**
-     * Add points to the score
-     */
-    addPoints(points) {
+    addPoints(this: Score, points: number): void {
       this.current += points;
     },
-    /**
-     * Reset score to initial state
-     */
-    reset() {
+    reset(this: Score): void {
       this.current = 0;
     },
   };
 
   // Game state
-  const gameState = {
+  const gameState: GameState = {
     hasStarted: false,
     isGameOver: false,
-    isNoteKeyPressed: false, // Track if any note key is currently pressed
-    currentNoteGridY: null, // Track the Y position of the currently pressed note
-    elapsedTime: 0, // Time elapsed since game started
-    difficulty: 1, // Current difficulty level (1-5)
+    isNoteKeyPressed: false,
+    currentNoteGridY: null,
+    elapsedTime: 0,
+    difficulty: 1,
   };
 
   // UI Layout constants
-  const UI_LAYOUT = {
+  const UI_LAYOUT: UILayout = {
     sidebarWidth: 120,
     noteIconSize: 32,
     noteSpacing: 65,
@@ -248,41 +372,32 @@ const main = (debug = false) => {
 
   /**
    * Calculate difficulty level based on elapsed time
-   * Difficulty increases gradually from 1 to 5
    */
-  const calculateDifficulty = (elapsedTime) => {
-    // Increase difficulty every 30 seconds, max out at level 5
+  const calculateDifficulty = (elapsedTime: number): number => {
     return Math.min(5, Math.floor(elapsedTime / 30) + 1);
   };
 
   /**
    * Get the current spawn interval based on difficulty
-   * Lower interval = more frequent spawns = harder
    */
-  const getSpawnInterval = (difficulty) => {
-    // Start at 2 seconds, decrease by 0.2 for each difficulty level
+  const getSpawnInterval = (difficulty: number): number => {
     return Math.max(0.8, 2 - (difficulty - 1) * 0.2);
   };
 
   /**
    * Get the current obstacle speed based on difficulty
-   * Higher speed = harder
    */
-  const getObstacleSpeed = (difficulty) => {
-    // Start at 150 pixels/sec, increase by 30 for each difficulty level
+  const getObstacleSpeed = (difficulty: number): number => {
     return 150 + (difficulty - 1) * 30;
   };
 
   /**
    * Check if a grid position is blocked by an obstacle
-   * @param {number} gridX - Grid X coordinate
-   * @param {number} gridY - Grid Y coordinate
-   * @returns {object|null} - The obstacle at that position, or null if no obstacle
    */
-  const getObstacleAt = (gridX, gridY) => {
+  const getObstacleAt = (gridX: number, gridY: number): ObstacleGenerator | null => {
     const pixelX = gridX * CONFIG.GRID_SIZE;
     const pixelY = gridY * CONFIG.GRID_SIZE;
-    const tolerance = CONFIG.GRID_SIZE / 2; // Allow some tolerance for moving obstacles
+    const tolerance = CONFIG.GRID_SIZE / 2;
 
     return (
       obstacles.find(
@@ -296,75 +411,63 @@ const main = (debug = false) => {
   /**
    * Audio system for playing musical notes
    */
-  const audio = {
+  const audio: Audio = {
     context: null,
     isMuted: false,
 
-    // Musical notes mapped to grid Y positions (5-9 including half steps)
-    // C major scale descending: higher on screen = higher pitch
     noteFrequencies: {
-      "5.0": 698.46, // F5
-      5.5: 659.25, // E5
-      "6.0": 587.33, // D5
-      6.5: 523.25, // C5
-      "7.0": 493.88, // B4
-      7.5: 440.0, // A4
-      "8.0": 392.0, // G4
-      8.5: 349.23, // F4
-      "9.0": 329.63, // E4
+      '5.0': 698.46,
+      '5.5': 659.25,
+      '6.0': 587.33,
+      '6.5': 523.25,
+      '7.0': 493.88,
+      '7.5': 440.0,
+      '8.0': 392.0,
+      '8.5': 349.23,
+      '9.0': 329.63,
     },
 
-    // Note names for display
     noteNames: {
-      "5.0": "F",
-      5.5: "E",
-      "6.0": "D",
-      6.5: "C",
-      "7.0": "B",
-      7.5: "A",
-      "8.0": "G",
-      8.5: "F",
-      "9.0": "E",
+      '5.0': 'F',
+      '5.5': 'E',
+      '6.0': 'D',
+      '6.5': 'C',
+      '7.0': 'B',
+      '7.5': 'A',
+      '8.0': 'G',
+      '8.5': 'F',
+      '9.0': 'E',
     },
 
-    init() {
-      // Create audio context on first user interaction
+    init(this: Audio) {
       if (!this.context) {
-        this.context = new (window.AudioContext || window.webkitAudioContext)();
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        this.context = new AudioContextClass();
       }
-      // Resume context if suspended (required by modern browsers)
-      if (this.context && this.context.state === "suspended") {
+      if (this.context && this.context.state === 'suspended') {
         this.context.resume().catch((err) => {
-          console.warn("Failed to resume audio context:", err);
+          console.warn('Failed to resume audio context:', err);
         });
       }
     },
 
-    playNote(pixelY, noteDuration = null) {
+    playNote(this: Audio, pixelY: number, noteDuration: number | null = null) {
       if (!this.context || this.isMuted) return;
 
-      // Use provided duration or default to player's current note duration
-      const duration =
-        noteDuration !== null
-          ? noteDuration
-          : getNoteDuration(player.noteValue);
-
-      // Convert pixel Y to grid Y (including half positions)
+      const duration = noteDuration !== null ? noteDuration : getNoteDuration(player.noteValue);
       const gridY = pixelY / CONFIG.GRID_SIZE;
-      const roundedGridY = Math.round(gridY * 2) / 2; // Round to nearest 0.5
-      // Convert to string key to properly lookup in noteFrequencies object
+      const roundedGridY = Math.round(gridY * 2) / 2;
       const noteKey = roundedGridY.toFixed(1);
-      const frequency = this.noteFrequencies[noteKey] || 261.63; // Default to C4
+      const frequency = this.noteFrequencies[noteKey] || 261.63;
 
       const now = this.context.currentTime;
 
-      // Piano sound parameters
-      const attackTime = 0.02; // Quick attack (piano hammer strike)
-      const decayTime = 0.3; // Medium decay
-      const sustainLevel = 0.15; // Quiet sustain level
-      const releaseTime = 0.5; // Long release (piano sustain)
+      // Warmer, more gentle envelope
+      const attackTime = 0.05; // Slower attack for gentler sound
+      const decayTime = 0.4;
+      const sustainLevel = 0.12;
+      const releaseTime = 0.8; // Longer release for warmth
 
-      // Create main oscillator (fundamental frequency)
       const osc1 = this.context.createOscillator();
       const gain1 = this.context.createGain();
 
@@ -372,9 +475,8 @@ const main = (debug = false) => {
       gain1.connect(this.context.destination);
 
       osc1.frequency.value = frequency;
-      osc1.type = "triangle"; // Triangle wave for warmer tone
+      osc1.type = 'sine'; // Changed from triangle to sine for warmer tone
 
-      // Create second harmonic (2x frequency) for richness
       const osc2 = this.context.createOscillator();
       const gain2 = this.context.createGain();
 
@@ -382,10 +484,9 @@ const main = (debug = false) => {
       gain2.connect(this.context.destination);
 
       osc2.frequency.value = frequency * 2;
-      osc2.type = "triangle";
-      gain2.gain.setValueAtTime(0.1, now); // 10% of main volume
+      osc2.type = 'sine'; // Changed from triangle to sine
+      gain2.gain.setValueAtTime(0.04, now); // Reduced from 0.1 to 0.04
 
-      // Create third harmonic (3x frequency) for more complexity
       const osc3 = this.context.createOscillator();
       const gain3 = this.context.createGain();
 
@@ -393,74 +494,58 @@ const main = (debug = false) => {
       gain3.connect(this.context.destination);
 
       osc3.frequency.value = frequency * 3;
-      osc3.type = "sine";
-      gain3.gain.setValueAtTime(0.05, now); // 5% of main volume
+      osc3.type = 'sine';
+      gain3.gain.setValueAtTime(0.015, now); // Reduced from 0.05 to 0.015
 
-      // ADSR Envelope for main oscillator (more piano-like)
-      // Attack phase
       gain1.gain.setValueAtTime(0, now);
-      gain1.gain.linearRampToValueAtTime(0.35, now + attackTime);
+      gain1.gain.linearRampToValueAtTime(0.3, now + attackTime); // Reduced from 0.35
+      gain1.gain.linearRampToValueAtTime(sustainLevel, now + attackTime + decayTime);
 
-      // Decay phase
-      gain1.gain.linearRampToValueAtTime(
-        sustainLevel,
-        now + attackTime + decayTime
-      );
-
-      // Sustain phase (maintains until release)
       const noteEndTime = now + duration;
 
-      // Release phase
       gain1.gain.linearRampToValueAtTime(0, noteEndTime + releaseTime);
 
-      // Start all oscillators
       osc1.start(now);
       osc2.start(now);
       osc3.start(now);
 
-      // Stop all oscillators with release time
       osc1.stop(noteEndTime + releaseTime);
       osc2.stop(noteEndTime + releaseTime);
       osc3.stop(noteEndTime + releaseTime);
     },
 
-    playErrorSound() {
+    playErrorSound(this: Audio) {
       if (!this.context || this.isMuted) return;
 
       try {
-        // Resume context if suspended
-        if (this.context.state === "suspended") {
+        if (this.context.state === 'suspended') {
           this.context.resume();
         }
 
-        // Create a C# error sound beep
         const oscillator = this.context.createOscillator();
         const gainNode = this.context.createGain();
 
         oscillator.connect(gainNode);
         gainNode.connect(this.context.destination);
 
-        // C# note frequency (277.18 Hz) - more audible
         oscillator.frequency.value = 277.18;
-        oscillator.type = "sine";
+        oscillator.type = 'sine';
 
-        // Duration for error sound
         const duration = 0.4;
         const now = this.context.currentTime;
 
-        // Quick attack and decay envelope
         gainNode.gain.setValueAtTime(0, now);
-        gainNode.gain.linearRampToValueAtTime(0.5, now + 0.05); // Quick attack
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration); // Decay
+        gainNode.gain.linearRampToValueAtTime(0.5, now + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration);
 
         oscillator.start(now);
         oscillator.stop(now + duration);
       } catch (err) {
-        console.error("Error playing error sound:", err);
+        console.error('Error playing error sound:', err);
       }
     },
 
-    toggleMute() {
+    toggleMute(this: Audio): boolean {
       this.isMuted = !this.isMuted;
       return this.isMuted;
     },
@@ -469,21 +554,20 @@ const main = (debug = false) => {
   /**
    * Note display system for showing note names on screen
    */
-  const noteDisplay = {
+  const noteDisplay: NoteDisplay = {
     noteName: null,
     displayTime: 0,
-    displayDuration: 0.8, // Show note for 0.8 seconds
+    displayDuration: 0.8,
 
-    show(pixelY) {
+    show(this: NoteDisplay, pixelY: number) {
       const gridY = pixelY / CONFIG.GRID_SIZE;
       const roundedGridY = Math.round(gridY * 2) / 2;
-      // Convert to string key to properly lookup in audio.noteNames object
       const noteKey = roundedGridY.toFixed(1);
-      this.noteName = audio.noteNames[noteKey] || "C";
+      this.noteName = audio.noteNames[noteKey] || 'C';
       this.displayTime = 0;
     },
 
-    update(delta) {
+    update(this: NoteDisplay, delta: number) {
       if (this.noteName) {
         this.displayTime += delta;
         if (this.displayTime >= this.displayDuration) {
@@ -492,9 +576,8 @@ const main = (debug = false) => {
       }
     },
 
-    getAlpha() {
+    getAlpha(this: NoteDisplay): number {
       if (!this.noteName) return 0;
-      // Fade out over time
       return Math.max(0, 1 - this.displayTime / this.displayDuration);
     },
   };
@@ -502,67 +585,49 @@ const main = (debug = false) => {
   /**
    * Check if player is currently colliding with any obstacle
    */
-  const checkPlayerCollisions = () => {
+  const checkPlayerCollisions = (): void => {
     obstacles.forEach((obs) => {
-      // Get player position (accounting for interpolated movement)
       const playerPixelX = player.getPixelX();
       const playerPixelY = player.getPixelY();
 
-      // Check X-axis overlap (obstacle must be at same X position as player)
       const dx = Math.abs(
         playerPixelX +
           CONFIG.PLAYER_SIZE / 2 -
           (obs.pixelX + CONFIG.GRID_SIZE / 2)
       );
 
-      // Check Y-axis overlap with half-grid precision
-      // Convert to grid Y positions and compare with one decimal place
       const playerGridY = (playerPixelY / CONFIG.GRID_SIZE).toFixed(1);
       const obsGridY = (obs.pixelY / CONFIG.GRID_SIZE).toFixed(1);
 
-      // Collision occurs when X overlaps AND Y positions match exactly (including half-grid)
       const collision = dx < CONFIG.PLAYER_SIZE && playerGridY === obsGridY;
 
       if (collision && !obs.hasCollided) {
         obs.hasCollided = true;
-
-        // Add points for successful collision
         score.addPoints(CONFIG.COLLISION_POINTS_GAINED);
-
-        // Play the musical note corresponding to the obstacle's Y position
         audio.playNote(obs.pixelY);
-
-        // Display the note name on screen
         noteDisplay.show(obs.pixelY);
-
-        // Start monster fade animation
         obs.fadeAnimation.start();
-
-        // Trigger player collision animation
         playerAnimation.start();
       }
     });
   };
 
   // Player object
-  const player = {
-    color: "#4CAF50",
+  const player: Player = {
+    color: '#4CAF50',
     pixelX: CONFIG.PLAYER_INITIAL_GRID_X * CONFIG.GRID_SIZE,
     pixelY: CONFIG.PLAYER_INITIAL_GRID_Y * CONFIG.GRID_SIZE,
     size: CONFIG.PLAYER_SIZE,
     imagePath: getPlayerNoteIcon(getSelectedPlayerNote()),
     image: null,
     noteValue: getSelectedPlayerNote(),
-    // Get grid X (for compatibility)
-    get gridX() {
+    get gridX(): number {
       return Math.round(this.pixelX / CONFIG.GRID_SIZE);
     },
-    // Get grid Y (for compatibility)
-    get gridY() {
+    get gridY(): number {
       return Math.round(this.pixelY / CONFIG.GRID_SIZE);
     },
-    // Get pixel position based on movement progress
-    getPixelX() {
+    getPixelX(this: Player): number {
       if (movement.isMoving && movement.nextPixelX !== null) {
         return (
           this.pixelX +
@@ -571,7 +636,7 @@ const main = (debug = false) => {
       }
       return this.pixelX;
     },
-    getPixelY() {
+    getPixelY(this: Player): number {
       if (movement.isMoving && movement.nextPixelY !== null) {
         return (
           this.pixelY +
@@ -580,28 +645,26 @@ const main = (debug = false) => {
       }
       return this.pixelY;
     },
-    // Update player note based on UI selection
-    updateNoteValue() {
+    updateNoteValue(this: Player): void {
       const selectedNote = getSelectedPlayerNote();
       if (selectedNote !== this.noteValue) {
         this.noteValue = selectedNote;
         this.imagePath = getPlayerNoteIcon(selectedNote);
-        // Mark image as needing reload
         this.image = null;
       }
     },
   };
 
   // Player animation state
-  const playerAnimation = {
+  const playerAnimation: PlayerAnimation = {
     isAnimating: false,
-    progress: 0, // 0 to 1
-    duration: 0.2, // Animation duration in seconds
-    start() {
+    progress: 0,
+    duration: 0.2,
+    start(this: PlayerAnimation) {
       this.isAnimating = true;
       this.progress = 0;
     },
-    update(delta) {
+    update(this: PlayerAnimation, delta: number) {
       if (this.isAnimating) {
         this.progress += delta / this.duration;
         if (this.progress >= 1) {
@@ -610,17 +673,15 @@ const main = (debug = false) => {
         }
       }
     },
-    getScale() {
+    getScale(this: PlayerAnimation): number {
       if (!this.isAnimating) return 1;
-      // Scale up to 1.3 and back down
       const t = this.progress;
       return 1 + 0.3 * Math.sin(t * Math.PI);
     },
-    getShake() {
+    getShake(this: PlayerAnimation): { x: number; y: number } {
       if (!this.isAnimating) return { x: 0, y: 0 };
-      // Shake horizontally and vertically
       const t = this.progress;
-      const intensity = 5 * (1 - t); // Fade out shake
+      const intensity = 5 * (1 - t);
       return {
         x: Math.sin(t * Math.PI * 8) * intensity,
         y: Math.cos(t * Math.PI * 8) * intensity,
@@ -629,41 +690,36 @@ const main = (debug = false) => {
   };
 
   // Treble clef object
-  const trebleClef = {
-    imagePath: "assets/MusicIcons/treble-clef.png",
+  const trebleClef: TrebleClef = {
+    imagePath: 'assets/MusicIcons/treble-clef.png',
     image: null,
-    x: 1 * CONFIG.GRID_SIZE, // Grid X position: 1
-    y: 5 * CONFIG.GRID_SIZE, // Grid Y position: 5
-    width: 3 * CONFIG.GRID_SIZE, // Width: 3 grid cells
-    height: (10 - 5) * CONFIG.GRID_SIZE, // Height from grid 5 to 10
+    x: 1 * CONFIG.GRID_SIZE,
+    y: 5 * CONFIG.GRID_SIZE,
+    width: 3 * CONFIG.GRID_SIZE,
+    height: (10 - 5) * CONFIG.GRID_SIZE,
   };
 
   /**
    * Update game logic based on elapsed time
-   * @param {number} delta - Time elapsed since last frame in seconds
    */
-  const update = (delta) => {
-    // Track elapsed time and update difficulty when game is running
+  const update = (delta: number): void => {
     if (gameState.hasStarted && !gameState.isGameOver) {
       gameState.elapsedTime += delta;
       const newDifficulty = calculateDifficulty(gameState.elapsedTime);
       gameState.difficulty = newDifficulty;
     }
 
-    // Check if player image needs to be reloaded (when note value changes)
     if (player.image === null && player.imagePath) {
       loadPlayerImage();
     }
 
-    // Spawn new obstacles
     obstacleSpawner.timeSinceLastSpawn += delta;
     const currentSpawnInterval = getSpawnInterval(gameState.difficulty);
     if (obstacleSpawner.timeSinceLastSpawn >= currentSpawnInterval) {
       obstacleSpawner.timeSinceLastSpawn = 0;
       const imagePath = obstacleSpawner.getNextImage();
-      // Random Y position between grid 5 and 9 (inclusive, with half-grid steps)
-      const randomIndex = Math.floor(Math.random() * 9); // 0-8 for 9 positions
-      const randomGridY = 5 + randomIndex * 0.5; // 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9
+      const randomIndex = Math.floor(Math.random() * 9);
+      const randomGridY = 5 + randomIndex * 0.5;
       const gameWidth = canvas.width - UI_LAYOUT.sidebarWidth;
       const currentSpeed = getObstacleSpeed(gameState.difficulty);
       const newObstacle = obstacleGenerator(
@@ -672,43 +728,34 @@ const main = (debug = false) => {
         imagePath,
         currentSpeed
       );
-      // Set the cached image immediately
       if (imageCache[imagePath]) {
         newObstacle.image = imageCache[imagePath];
       }
       obstacles.push(newObstacle);
     }
 
-    // Update obstacle positions
     obstacles.forEach((obs) => {
-      obs.pixelX -= obs.speed * delta; // Move left
-      // Update fade animation
+      obs.pixelX -= obs.speed * delta;
       obs.fadeAnimation.update(delta);
     });
 
-    // Calculate overlay boundaries for miss detection
     const noteDuration = getNoteDuration(player.noteValue);
-    const obstacleSpeed = 150; // pixels per second
+    const obstacleSpeed = 150;
     const overlayWidth = noteDuration * obstacleSpeed;
     const overlayStartX = trebleClef.x + trebleClef.width;
     const overlayEndX = overlayStartX + overlayWidth;
 
-    // Check for misses
     obstacles.forEach((obs) => {
       if (lives.checkMiss(obs, player.pixelX, overlayStartX)) {
-        // Play error sound on miss
         audio.playErrorSound();
-        // Check if game is over after losing a life
         if (lives.isGameOver()) {
           gameState.isGameOver = true;
         }
       }
     });
 
-    // Remove obstacles that went off-screen or finished fading
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const obs = obstacles[i];
-      // Remove if off-screen or if it has finished fading away
       if (
         obs.pixelX + CONFIG.GRID_SIZE < 0 ||
         (obs.fadeAnimation.progress >= 1 && !obs.fadeAnimation.isAnimating)
@@ -717,62 +764,50 @@ const main = (debug = false) => {
       }
     }
 
-    // Update movement animation
     if (movement.isMoving) {
       movement.moveProgress += delta / CONFIG.MOVE_SPEED;
 
       if (movement.moveProgress >= 1) {
-        // Movement complete
         movement.moveProgress = 1;
-        player.pixelX = movement.nextPixelX;
-        player.pixelY = movement.nextPixelY;
+        player.pixelX = movement.nextPixelX!;
+        player.pixelY = movement.nextPixelY!;
         movement.isMoving = false;
         movement.nextPixelX = null;
         movement.nextPixelY = null;
       }
     }
 
-    // Check for collisions every frame
     checkPlayerCollisions();
-
-    // Update player animation
     playerAnimation.update(delta);
-
-    // Update note display
     noteDisplay.update(delta);
   };
 
   /**
    * Draw UI sidebar on canvas
    */
-  const drawUI = () => {
-    // Draw sidebar background
-    ctx.fillStyle = "#f0f0f0";
+  const drawUI = (): void => {
+    ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(0, 0, UI_LAYOUT.sidebarWidth, canvas.height);
 
-    // Draw sidebar border
-    ctx.strokeStyle = "#cccccc";
+    ctx.strokeStyle = '#cccccc';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(UI_LAYOUT.sidebarWidth, 0);
     ctx.lineTo(UI_LAYOUT.sidebarWidth, canvas.height);
     ctx.stroke();
 
-    // Draw title
-    ctx.fillStyle = "#333333";
-    ctx.font = "bold 14px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("Player Note", UI_LAYOUT.sidebarWidth / 2, 30);
+    ctx.fillStyle = '#333333';
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Player Note', UI_LAYOUT.sidebarWidth / 2, 30);
 
-    // Draw note options
-    const notes = ["whole", "half", "quarter", "eighth", "sixteenth"];
+    const notes: Array<'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'> = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
     notes.forEach((note, index) => {
       const y = UI_LAYOUT.startY + index * UI_LAYOUT.noteSpacing;
       const centerX = UI_LAYOUT.sidebarWidth / 2;
 
-      // Highlight selected note
       if (note === uiState.selectedNote) {
-        ctx.fillStyle = "#4CAF50";
+        ctx.fillStyle = '#4CAF50';
         ctx.fillRect(
           10,
           y - UI_LAYOUT.noteIconSize / 2,
@@ -781,7 +816,6 @@ const main = (debug = false) => {
         );
       }
 
-      // Draw note image
       const img = uiState.noteImages[note];
       if (img && img.complete) {
         ctx.drawImage(
@@ -793,9 +827,8 @@ const main = (debug = false) => {
         );
       }
 
-      // Draw note label
-      ctx.fillStyle = note === uiState.selectedNote ? "#ffffff" : "#666666";
-      ctx.font = "11px Arial";
+      ctx.fillStyle = note === uiState.selectedNote ? '#ffffff' : '#666666';
+      ctx.font = '11px Arial';
       ctx.fillText(
         note.charAt(0).toUpperCase() + note.slice(1),
         centerX,
@@ -803,30 +836,19 @@ const main = (debug = false) => {
       );
     });
 
-    // Draw mute button
     const muteX = 10;
     const muteY = UI_LAYOUT.muteButtonY;
-    ctx.fillStyle = uiState.isMuted ? "#FF6B6B" : "#4CAF50";
-    ctx.fillRect(
-      muteX,
-      muteY,
-      UI_LAYOUT.muteButtonWidth,
-      UI_LAYOUT.muteButtonHeight
-    );
-    ctx.strokeStyle = "#333333";
+    ctx.fillStyle = uiState.isMuted ? '#FF6B6B' : '#4CAF50';
+    ctx.fillRect(muteX, muteY, UI_LAYOUT.muteButtonWidth, UI_LAYOUT.muteButtonHeight);
+    ctx.strokeStyle = '#333333';
     ctx.lineWidth = 2;
-    ctx.strokeRect(
-      muteX,
-      muteY,
-      UI_LAYOUT.muteButtonWidth,
-      UI_LAYOUT.muteButtonHeight
-    );
+    ctx.strokeRect(muteX, muteY, UI_LAYOUT.muteButtonWidth, UI_LAYOUT.muteButtonHeight);
 
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "20px Arial";
-    ctx.textAlign = "center";
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '20px Arial';
+    ctx.textAlign = 'center';
     ctx.fillText(
-      uiState.isMuted ? "🔇" : "🔊",
+      uiState.isMuted ? '🔇' : '🔊',
       muteX + UI_LAYOUT.muteButtonWidth / 2,
       muteY + UI_LAYOUT.muteButtonHeight / 2 + 7
     );
@@ -835,23 +857,19 @@ const main = (debug = false) => {
   /**
    * Render the game scene
    */
-  const render = () => {
-    // Clear canvas with white background
-    ctx.fillStyle = "#ffffff";
+  const render = (): void => {
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw UI sidebar
     drawUI();
 
-    // Save context and translate for game area
     ctx.save();
     ctx.translate(UI_LAYOUT.sidebarWidth, 0);
 
-    // Draw 5 horizontal background lines spaced by grid size, centered vertically
     const gameWidth = canvas.width - UI_LAYOUT.sidebarWidth;
-    ctx.strokeStyle = "#000000";
+    ctx.strokeStyle = '#000000';
     ctx.lineWidth = 2;
-    const totalLineHeight = 4 * CONFIG.GRID_SIZE; // 4 gaps between 5 lines
+    const totalLineHeight = 4 * CONFIG.GRID_SIZE;
     const startY = (canvas.height - totalLineHeight) / 2;
     for (let i = 0; i < 5; i++) {
       const y = startY + i * CONFIG.GRID_SIZE;
@@ -861,7 +879,6 @@ const main = (debug = false) => {
       ctx.stroke();
     }
 
-    // Draw treble clef at the beginning of the stave
     if (trebleClef.image && trebleClef.image.complete) {
       ctx.drawImage(
         trebleClef.image,
@@ -872,20 +889,17 @@ const main = (debug = false) => {
       );
     }
 
-    // Draw translucent greenish overlay based on note value
-    // The overlay width represents the duration of the selected note
     const noteDuration = getNoteDuration(player.noteValue);
-    const obstacleSpeed = 150; // pixels per second
+    const obstacleSpeed = 150;
     const overlayWidth = noteDuration * obstacleSpeed;
     const overlayStartX = trebleClef.x + trebleClef.width;
-    const staffHeight = 4 * CONFIG.GRID_SIZE; // Height from first to last line
+    const staffHeight = 4 * CONFIG.GRID_SIZE;
 
-    ctx.fillStyle = "rgba(144, 238, 144, 0.3)"; // Light green with 30% opacity
+    ctx.fillStyle = 'rgba(144, 238, 144, 0.3)';
     ctx.fillRect(overlayStartX, startY, overlayWidth, staffHeight);
 
-    // Draw grid (optional, helpful for debugging)
     if (debug) {
-      ctx.strokeStyle = "#e0e0e0";
+      ctx.strokeStyle = '#e0e0e0';
       ctx.lineWidth = 1;
       for (let x = 0; x <= canvas.width; x += CONFIG.GRID_SIZE) {
         ctx.beginPath();
@@ -893,11 +907,7 @@ const main = (debug = false) => {
         ctx.lineTo(x, canvas.height);
         ctx.stroke();
       }
-      for (
-        let y = CONFIG.GRID_SIZE / 2;
-        y <= canvas.height;
-        y += CONFIG.GRID_SIZE
-      ) {
+      for (let y = CONFIG.GRID_SIZE / 2; y <= canvas.height; y += CONFIG.GRID_SIZE) {
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(canvas.width, y);
@@ -905,16 +915,13 @@ const main = (debug = false) => {
       }
     }
 
-    // Draw player only if a note key is currently pressed
     if (gameState.isNoteKeyPressed && gameState.currentNoteGridY !== null) {
       const scale = playerAnimation.getScale();
       const shake = playerAnimation.getShake();
       const playerX = player.getPixelX() + shake.x;
-      // Position player at the Y position of the currently pressed note
       const playerY = gameState.currentNoteGridY * CONFIG.GRID_SIZE + shake.y;
 
       if (player.image && player.image.complete) {
-        // Apply scaling transformation
         ctx.save();
         const centerX = playerX + player.size / 2;
         const centerY = playerY + player.size / 2;
@@ -922,12 +929,10 @@ const main = (debug = false) => {
         ctx.scale(scale, scale);
         ctx.translate(-centerX, -centerY);
 
-        // Draw the player image
         ctx.drawImage(player.image, playerX, playerY, player.size, player.size);
 
         ctx.restore();
       } else {
-        // Fallback to colored square if image not loaded
         ctx.save();
         const centerX = playerX + player.size / 2;
         const centerY = playerY + player.size / 2;
@@ -942,7 +947,6 @@ const main = (debug = false) => {
       }
     }
 
-    // Draw obstacles
     obstacles.forEach((obs) => {
       const alpha = obs.fadeAnimation.getAlpha();
       const scale = obs.fadeAnimation.getScale();
@@ -950,11 +954,9 @@ const main = (debug = false) => {
       const shake = obs.fadeAnimation.getShake();
 
       if (obs.image && obs.image.complete) {
-        // Draw the monster image with explosion effects
         ctx.save();
         ctx.globalAlpha = alpha;
 
-        // Apply transformations
         const centerX = obs.pixelX + CONFIG.GRID_SIZE / 2 + shake.x;
         const centerY = obs.pixelY + CONFIG.GRID_SIZE / 2 + shake.y;
         ctx.translate(centerX, centerY);
@@ -965,11 +967,9 @@ const main = (debug = false) => {
         ctx.drawImage(obs.image, 0, 0, CONFIG.GRID_SIZE, CONFIG.GRID_SIZE);
         ctx.restore();
       } else {
-        // Fallback to colored square if image not loaded
         ctx.save();
         ctx.globalAlpha = alpha;
 
-        // Apply transformations
         const centerX = obs.pixelX + CONFIG.GRID_SIZE / 2 + shake.x;
         const centerY = obs.pixelY + CONFIG.GRID_SIZE / 2 + shake.y;
         ctx.translate(centerX, centerY);
@@ -977,121 +977,98 @@ const main = (debug = false) => {
         ctx.scale(scale, scale);
         ctx.translate(-CONFIG.GRID_SIZE / 2, -CONFIG.GRID_SIZE / 2);
 
-        ctx.fillStyle = "#FF6B6B";
+        ctx.fillStyle = '#FF6B6B';
         ctx.fillRect(0, 0, CONFIG.GRID_SIZE, CONFIG.GRID_SIZE);
         ctx.restore();
       }
     });
 
-    // Draw note display (fading out)
     if (noteDisplay.noteName) {
       const alpha = noteDisplay.getAlpha();
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = "#333333";
-      ctx.font = "bold 72px Arial";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
+      ctx.fillStyle = '#333333';
+      ctx.font = 'bold 72px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillText(noteDisplay.noteName, gameWidth / 2, canvas.height / 2);
       ctx.restore();
     }
 
-    // Draw lives, score, and difficulty
-    ctx.fillStyle = lives.current === 0 ? "#FF0000" : "#000000";
-    ctx.font = "bold 24px Arial";
-    ctx.textAlign = "right";
-    ctx.fillText(`Lives: ${lives.current}/${lives.max}`, gameWidth - 20, 30);
+    ctx.fillStyle = lives.current === 0 ? '#FF0000' : '#000000';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'right';
     ctx.fillText(`Score: ${score.current}`, gameWidth - 20, 60);
 
-    // Draw difficulty indicator
     if (gameState.hasStarted && !gameState.isGameOver) {
-      ctx.fillStyle = "#4CAF50";
-      ctx.font = "bold 18px Arial";
+      ctx.fillStyle = '#4CAF50';
+      ctx.font = 'bold 18px Arial';
       ctx.fillText(`Level: ${gameState.difficulty}`, gameWidth - 20, 90);
     }
-    ctx.textAlign = "left";
+    ctx.textAlign = 'left';
 
-    // Draw start screen
     if (!gameState.hasStarted) {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
       ctx.fillRect(0, 0, gameWidth, canvas.height);
-      ctx.fillStyle = "#00CC00";
-      ctx.font = "bold 72px Arial";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("Music Note Game", gameWidth / 2, canvas.height / 2 - 80);
+      ctx.fillStyle = '#00CC00';
+      ctx.font = 'bold 72px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Music Note Game', gameWidth / 2, canvas.height / 2 - 80);
 
-      // Draw start button
       const buttonWidth = 200;
       const buttonHeight = 60;
       const buttonX = gameWidth / 2 - buttonWidth / 2;
       const buttonY = canvas.height / 2 + 20;
 
-      ctx.fillStyle = "#00CC00";
+      ctx.fillStyle = '#00CC00';
       ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
-      ctx.strokeStyle = "#FFFFFF";
+      ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 3;
       ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
 
-      ctx.fillStyle = "#FFFFFF";
-      ctx.font = "bold 32px Arial";
-      ctx.fillText("START", gameWidth / 2, buttonY + buttonHeight / 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 32px Arial';
+      ctx.fillText('START', gameWidth / 2, buttonY + buttonHeight / 2);
     }
 
-    // Draw game over message
     if (gameState.isGameOver) {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
       ctx.fillRect(0, 0, gameWidth, canvas.height);
-      ctx.fillStyle = "#FF0000";
-      ctx.font = "bold 72px Arial";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("GAME OVER", gameWidth / 2, canvas.height / 2 - 60);
-      ctx.fillStyle = "#FFFFFF";
-      ctx.font = "bold 32px Arial";
-      ctx.fillText(
-        "Press R to try again",
-        gameWidth / 2,
-        canvas.height / 2 + 40
-      );
+      ctx.fillStyle = '#FF0000';
+      ctx.font = 'bold 72px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('GAME OVER', gameWidth / 2, canvas.height / 2 - 60);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 32px Arial';
+      ctx.fillText('Press R to try again', gameWidth / 2, canvas.height / 2 + 40);
     }
 
-    // Draw instructions at the bottom when game has started
     if (gameState.hasStarted && !gameState.isGameOver) {
-      ctx.fillStyle = "#333333";
-      ctx.font = "14px Arial";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "top";
+      ctx.fillStyle = '#333333';
+      ctx.font = '14px Arial';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
 
       const instructionY = canvas.height - 120;
       const instructionX = UI_LAYOUT.sidebarWidth;
 
-      ctx.fillText("How to Play:", instructionX, instructionY);
-      ctx.font = "12px Arial";
-      ctx.fillText(
-        "• Press C, D, E, F, G, A, B to match the notes",
-        instructionX,
-        instructionY + 20
-      );
-      ctx.fillText(
-        "• Select note duration from the sidebar",
-        instructionX,
-        instructionY + 35
-      );
+      ctx.fillText('How to Play:', instructionX, instructionY);
+      ctx.font = '12px Arial';
+      ctx.fillText('• Press C, D, E, F, G, A, B to match the notes', instructionX, instructionY + 20);
+      ctx.fillText('• Select note duration from the sidebar', instructionX, instructionY + 35);
       ctx.fillText("• Don't miss the notes!", instructionX, instructionY + 50);
     }
 
-    // Draw position info for debugging
     if (debug) {
-      ctx.fillStyle = "#333333";
-      ctx.font = "12px Arial";
+      ctx.fillStyle = '#333333';
+      ctx.font = '12px Arial';
       const gridX = (player.pixelX / CONFIG.GRID_SIZE).toFixed(1);
       const gridY = (player.pixelY / CONFIG.GRID_SIZE).toFixed(1);
       ctx.fillText(`Player Pos: (${gridX}, ${gridY})`, 10, 20);
       ctx.fillText(
-        `Pixel: (${Math.round(player.getPixelX())}, ${Math.round(
-          player.getPixelY()
-        )})`,
+        `Pixel: (${Math.round(player.getPixelX())}, ${Math.round(player.getPixelY())})`,
         10,
         32
       );
@@ -1099,20 +1076,17 @@ const main = (debug = false) => {
       ctx.fillText(`Obstacles: ${obstacles.length}`, 10, 56);
     }
 
-    // Restore context
     ctx.restore();
   };
 
   /**
    * Main game loop
-   * @param {number} timestamp - Current timestamp from requestAnimationFrame
    */
-  const loop = (timestamp) => {
-    const delta = (timestamp - lastTime) / 1000; // Convert to seconds
+  const loop = (timestamp: number): void => {
+    const delta = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
 
-    // Cap delta time to prevent large jumps (e.g., if tab was inactive)
-    const cappedDelta = Math.min(delta, 0.016); // ~60fps
+    const cappedDelta = Math.min(delta, 0.016);
 
     if (gameState.hasStarted && !gameState.isGameOver) {
       update(cappedDelta);
@@ -1123,15 +1097,13 @@ const main = (debug = false) => {
   };
 
   /**
-   * Handle note key press - check for collision with obstacles at that note's Y position
+   * Handle note key press - check for collision with obstacles
    */
-  const handleNoteKeyPress = (gridYArray) => {
-    // Ensure gridYArray is always an array
+  const handleNoteKeyPress = (gridYArray: number[]): void => {
     const gridYs = Array.isArray(gridYArray) ? gridYArray : [gridYArray];
 
-    // Calculate overlay boundaries based on note duration
     const noteDuration = getNoteDuration(player.noteValue);
-    const obstacleSpeed = 150; // pixels per second
+    const obstacleSpeed = 150;
     const overlayWidth = noteDuration * obstacleSpeed;
     const overlayStartX = trebleClef.x + trebleClef.width;
     const overlayEndX = overlayStartX + overlayWidth;
@@ -1139,50 +1111,33 @@ const main = (debug = false) => {
     let hitCorrectNote = false;
     let hasObstacleInOverlay = false;
 
-    // Find obstacles within the overlay section
     obstacles.forEach((obs) => {
-      // Check if obstacle is within the overlay section (hitting zone)
       const obsCenter = obs.pixelX + CONFIG.GRID_SIZE / 2;
-      const isWithinOverlay =
-        obsCenter >= overlayStartX && obsCenter <= overlayEndX;
+      const isWithinOverlay = obsCenter >= overlayStartX && obsCenter <= overlayEndX;
 
-      // Track if there's any obstacle in the overlay (for wrong key detection)
       if (isWithinOverlay && !obs.hasCollided && !obs.hasBeenAvoided) {
         hasObstacleInOverlay = true;
       }
 
-      // Check if obstacle matches any of the pressed note's Y positions
       const obsGridY = parseFloat((obs.pixelY / CONFIG.GRID_SIZE).toFixed(1));
       const yMatch = gridYs.some((gridY) => Math.abs(gridY - obsGridY) < 0.1);
 
-      // Collision occurs when Y positions match, obstacle is within overlay, and not already collided
       if (yMatch && isWithinOverlay && !obs.hasCollided) {
         obs.hasCollided = true;
         hitCorrectNote = true;
 
-        // Add points for successful collision
         score.addPoints(CONFIG.COLLISION_POINTS_GAINED);
-
-        // Play the musical note corresponding to the obstacle's Y position
         audio.playNote(obs.pixelY);
-
-        // Display the note name on screen
         noteDisplay.show(obs.pixelY);
-
-        // Start monster fade animation
         obs.fadeAnimation.start();
-
-        // Trigger player collision animation
         playerAnimation.start();
       }
     });
 
-    // If there's an obstacle in the overlay but we didn't hit it, it's a wrong key press
     if (hasObstacleInOverlay && !hitCorrectNote) {
       lives.loseLife();
       audio.playErrorSound();
 
-      // Check if game is over after losing a life
       if (lives.isGameOver()) {
         gameState.isGameOver = true;
       }
@@ -1192,14 +1147,12 @@ const main = (debug = false) => {
   /**
    * Setup event listeners for input handling
    */
-  const setupInputHandlers = () => {
-    // Handle canvas click for start button and UI interactions
-    const handleCanvasClick = (e) => {
+  const setupInputHandlers = (): { handleKeyDown: (e: KeyboardEvent) => void; handleKeyUp: (e: KeyboardEvent) => void } => {
+    const handleCanvasClick = (e: MouseEvent): void => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      // Handle start button click
       if (!gameState.hasStarted) {
         const buttonWidth = 200;
         const buttonHeight = 60;
@@ -1213,18 +1166,15 @@ const main = (debug = false) => {
           y <= buttonY + buttonHeight
         ) {
           gameState.hasStarted = true;
-          // Initialize audio context on first interaction
-          if (audio.context && audio.context.state === "suspended") {
+          if (audio.context && audio.context.state === 'suspended') {
             audio.context.resume();
           }
         }
         return;
       }
 
-      // Handle UI sidebar clicks
       if (x < UI_LAYOUT.sidebarWidth) {
-        // Check note selection clicks
-        const notes = ["whole", "half", "quarter", "eighth", "sixteenth"];
+        const notes: Array<'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'> = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
         notes.forEach((note, index) => {
           const noteY = UI_LAYOUT.startY + index * UI_LAYOUT.noteSpacing;
           const clickAreaTop = noteY - UI_LAYOUT.noteIconSize / 2 - 5;
@@ -1237,7 +1187,6 @@ const main = (debug = false) => {
           }
         });
 
-        // Check mute button click
         const muteX = 10;
         const muteY = UI_LAYOUT.muteButtonY;
         if (
@@ -1247,44 +1196,32 @@ const main = (debug = false) => {
           y <= muteY + UI_LAYOUT.muteButtonHeight
         ) {
           uiState.isMuted = audio.toggleMute();
-          console.log(`Audio ${uiState.isMuted ? "muted" : "unmuted"}`);
+          console.log(`Audio ${uiState.isMuted ? 'muted' : 'unmuted'}`);
         }
       }
     };
 
-    const handleKeyDown = (e) => {
-      // Handle restart key (allowed even when game is over)
-      if (
-        (e.key.toLowerCase() === "r" || e.key.toLowerCase() === "R") &&
-        gameState.isGameOver
-      ) {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if ((e.key.toLowerCase() === 'r') && gameState.isGameOver) {
         restartGame();
         return;
       }
 
-      // If game is over, don't process any other keys
       if (gameState.isGameOver) {
         return;
       }
 
-      // Initialize audio context on first user interaction
-      if (audio.context && audio.context.state === "suspended") {
+      if (audio.context && audio.context.state === 'suspended') {
         audio.context.resume();
       }
 
-      // Handle note keys (C, D, E, F, G, A, B)
       const noteGridYValues = NOTE_KEY_MAP[e.key.toLowerCase()];
       if (noteGridYValues !== undefined) {
-        // Mark that a note key is being pressed
         gameState.isNoteKeyPressed = true;
 
-        // Find the Y position with an actual obstacle
-        const gridYArray = Array.isArray(noteGridYValues)
-          ? noteGridYValues
-          : [noteGridYValues];
-        let targetGridY = gridYArray[0]; // Default to first value
+        const gridYArray = Array.isArray(noteGridYValues) ? noteGridYValues : [noteGridYValues];
+        let targetGridY = gridYArray[0];
 
-        // Find obstacles at any of the note's Y positions
         const obstaclesAtNote = obstacles.filter((obs) => {
           const obsGridY = (obs.pixelY / CONFIG.GRID_SIZE).toFixed(1);
           return gridYArray.some(
@@ -1292,7 +1229,6 @@ const main = (debug = false) => {
           );
         });
 
-        // If there are obstacles, use the Y position of the closest one
         if (obstaclesAtNote.length > 0) {
           const closestObstacle = obstaclesAtNote.reduce((closest, current) => {
             return current.pixelX > closest.pixelX ? current : closest;
@@ -1301,84 +1237,67 @@ const main = (debug = false) => {
         }
 
         gameState.currentNoteGridY = targetGridY;
-
-        // Call handleNoteKeyPress once with all possible Y values for this key
         handleNoteKeyPress(noteGridYValues);
         e.preventDefault();
         return;
       }
     };
 
-    const handleKeyUp = (e) => {
-      // If game is over, don't process key releases
+    const handleKeyUp = (e: KeyboardEvent): void => {
       if (gameState.isGameOver) {
         return;
       }
 
-      // Handle note keys (C, D, E, F, G, A, B)
       const noteGridYValues = NOTE_KEY_MAP[e.key.toLowerCase()];
       if (noteGridYValues !== undefined) {
-        // Mark that the note key is no longer pressed
         gameState.isNoteKeyPressed = false;
         gameState.currentNoteGridY = null;
         e.preventDefault();
       }
     };
 
-    canvas.addEventListener("click", handleCanvasClick);
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+    canvas.addEventListener('click', handleCanvasClick);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
-    // Store handlers for cleanup
     return { handleKeyDown, handleKeyUp };
   };
 
   /**
    * Restart the game
    */
-  const restartGame = () => {
-    // Reset lives
+  const restartGame = (): void => {
     lives.reset();
-
-    // Reset score
     score.reset();
-
-    // Clear game over state
     gameState.isGameOver = false;
-    gameState.hasStarted = true; // Keep game started on restart
-    gameState.elapsedTime = 0; // Reset elapsed time
-    gameState.difficulty = 1; // Reset difficulty
-
-    // Clear obstacles
+    gameState.hasStarted = true;
+    gameState.elapsedTime = 0;
+    gameState.difficulty = 1;
     obstacles.length = 0;
 
-    // Reset player position
     player.pixelX = CONFIG.PLAYER_INITIAL_GRID_X * CONFIG.GRID_SIZE;
     player.pixelY = CONFIG.PLAYER_INITIAL_GRID_Y * CONFIG.GRID_SIZE;
 
-    // Reset movement state
     movement.isMoving = false;
     movement.moveProgress = 0;
     movement.nextPixelX = null;
     movement.nextPixelY = null;
 
-    // Reset animations
     playerAnimation.isAnimating = false;
     playerAnimation.progress = 0;
     noteDisplay.noteName = null;
     noteDisplay.displayTime = 0;
 
-    // Reset obstacle spawner
     obstacleSpawner.timeSinceLastSpawn = 0;
 
-    console.log("Game state reset");
+    console.log('Game state reset');
   };
 
   /**
    * Load all monster images for obstacles
    */
-  const loadMonsterImages = async () => {
-    const monsterImages = new Set();
+  const loadMonsterImages = async (): Promise<void[]> => {
+    const monsterImages = new Set<string>();
     obstacles.forEach((obs) => {
       if (obs.imagePath) monsterImages.add(obs.imagePath);
     });
@@ -1389,11 +1308,10 @@ const main = (debug = false) => {
 
     const imagePromises = Array.from(monsterImages).map(
       (imagePath) =>
-        new Promise((resolve) => {
+        new Promise<void>((resolve) => {
           const img = new Image();
           img.src = imagePath;
           img.onload = () => {
-            // Store the image in all obstacles that use it
             obstacles.forEach((obs) => {
               if (obs.imagePath === imagePath) {
                 obs.image = img;
@@ -1414,8 +1332,8 @@ const main = (debug = false) => {
   /**
    * Load player image
    */
-  const loadPlayerImage = async () => {
-    return new Promise((resolve) => {
+  const loadPlayerImage = async (): Promise<void> => {
+    return new Promise<void>((resolve) => {
       if (!player.imagePath) {
         resolve();
         return;
@@ -1437,11 +1355,11 @@ const main = (debug = false) => {
   /**
    * Load UI note images
    */
-  const loadUIImages = async () => {
-    const notes = ["whole", "half", "quarter", "eighth", "sixteenth"];
+  const loadUIImages = async (): Promise<void[]> => {
+    const notes: Array<'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'> = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
     const promises = notes.map(
       (note) =>
-        new Promise((resolve) => {
+        new Promise<void>((resolve) => {
           const img = new Image();
           img.src = getPlayerNoteIcon(note);
           img.onload = () => {
@@ -1460,8 +1378,8 @@ const main = (debug = false) => {
   /**
    * Load treble clef image
    */
-  const loadTrebleClefImage = async () => {
-    return new Promise((resolve) => {
+  const loadTrebleClefImage = async (): Promise<void> => {
+    return new Promise<void>((resolve) => {
       if (!trebleClef.imagePath) {
         resolve();
         return;
@@ -1474,9 +1392,7 @@ const main = (debug = false) => {
         resolve();
       };
       img.onerror = () => {
-        console.warn(
-          `Failed to load treble clef image: ${trebleClef.imagePath}`
-        );
+        console.warn(`Failed to load treble clef image: ${trebleClef.imagePath}`);
         resolve();
       };
     });
@@ -1485,47 +1401,42 @@ const main = (debug = false) => {
   /**
    * Cache for loaded monster images
    */
-  const imageCache = {};
+  const imageCache: Record<string, HTMLImageElement> = {};
 
   /**
    * Initialize the game
    */
-  const init = async () => {
-    console.log("Game init started...");
+  const init = async (): Promise<boolean> => {
+    console.log('Game init started...');
 
-    canvas = document.getElementById("game");
+    const canvasElement = document.getElementById('game');
 
-    if (!canvas) {
+    if (!canvasElement || !(canvasElement instanceof HTMLCanvasElement)) {
       console.error(
         "Canvas element not found! Make sure your HTML has an element with id='game'"
       );
       return false;
     }
 
-    // Get 2D context for drawing
-    ctx = canvas.getContext("2d");
-    if (!ctx) {
-      console.error("Failed to get 2D context from canvas");
+    canvas = canvasElement;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      console.error('Failed to get 2D context from canvas');
       return false;
     }
 
-    // Load monster images
+    ctx = context;
+
     await loadMonsterImages();
-
-    // Load player image
     await loadPlayerImage();
-
-    // Load treble clef image
     await loadTrebleClefImage();
-
-    // Load UI images
     await loadUIImages();
 
-    // Preload all monster images for spawned obstacles
     await Promise.all(
       obstacleSpawner.monsterImages.map(
         (imagePath) =>
-          new Promise((resolve) => {
+          new Promise<void>((resolve) => {
             const img = new Image();
             img.src = imagePath;
             img.onload = () => {
@@ -1540,29 +1451,24 @@ const main = (debug = false) => {
       )
     );
 
-    // Setup input handlers
     setupInputHandlers();
-
-    // Initialize audio context
     audio.init();
 
-    console.log("Game initialized successfully");
+    console.log('Game initialized successfully');
     return true;
   };
 
-  // Initialize and start the game
   init().then((isReady) => {
     if (isReady) {
       requestAnimationFrame(loop);
     } else {
-      console.error("Game failed to initialize");
+      console.error('Game failed to initialize');
     }
   });
 };
 
-// Start the game when DOM is ready
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => main());
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => main());
 } else {
   main();
 }

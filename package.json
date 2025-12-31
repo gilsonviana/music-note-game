@@ -1,0 +1,25 @@
+{
+  "name": "music-note-game",
+  "version": "1.0.0",
+  "description": "A music note rhythm game built with Canvas and TypeScript",
+  "main": "dist/game.js",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "dev": "esbuild game.ts --bundle --watch --servedir=. --outdir=dist",
+    "test": "ts-node game.test.ts"
+  },
+  "keywords": [
+    "game",
+    "music",
+    "canvas",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.1",
+    "esbuild": "^0.19.0"
+  }
+}

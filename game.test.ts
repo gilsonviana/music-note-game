@@ -1,33 +1,31 @@
 /**
  * Tests for Music Note Game
- * Run with: node game.test.js
+ * Run with: npx ts-node game.test.ts
  */
 
 // Simple test framework
 class TestRunner {
-  constructor() {
-    this.tests = [];
-    this.passed = 0;
-    this.failed = 0;
-  }
+  tests: Array<{ description: string; fn: (runner: TestRunner) => void }> = [];
+  passed: number = 0;
+  failed: number = 0;
 
-  test(description, fn) {
+  test(description: string, fn: (runner: TestRunner) => void): void {
     this.tests.push({ description, fn });
   }
 
-  assert(condition, message) {
+  assert(condition: boolean, message?: string): void {
     if (!condition) {
       throw new Error(message || 'Assertion failed');
     }
   }
 
-  assertEqual(actual, expected, message) {
+  assertEqual(actual: any, expected: any, message?: string): void {
     if (actual !== expected) {
       throw new Error(message || `Expected ${expected}, got ${actual}`);
     }
   }
 
-  assertDeepEqual(actual, expected, message) {
+  assertDeepEqual(actual: any, expected: any, message?: string): void {
     const actualStr = JSON.stringify(actual);
     const expectedStr = JSON.stringify(expected);
     if (actualStr !== expectedStr) {
@@ -35,7 +33,7 @@ class TestRunner {
     }
   }
 
-  run() {
+  run(): boolean {
     console.log('Running tests...\n');
 
     this.tests.forEach(({ description, fn }) => {
@@ -46,7 +44,9 @@ class TestRunner {
       } catch (error) {
         this.failed++;
         console.log(`✗ ${description}`);
-        console.log(`  Error: ${error.message}\n`);
+        if (error instanceof Error) {
+          console.log(`  Error: ${error.message}\n`);
+        }
       }
     });
 
@@ -66,7 +66,7 @@ runner.test('getNoteDuration returns correct duration for whole note', (t) => {
   const beatDuration = 60 / BPM;
   const expected = beatDuration * 4;
 
-  const noteDurations = {
+  const noteDurations: Record<string, number> = {
     'whole': beatDuration * 4,
     'half': beatDuration * 2,
     'quarter': beatDuration * 1,
@@ -82,7 +82,7 @@ runner.test('getNoteDuration returns correct duration for half note', (t) => {
   const beatDuration = 60 / BPM;
   const expected = beatDuration * 2;
 
-  const noteDurations = {
+  const noteDurations: Record<string, number> = {
     'whole': beatDuration * 4,
     'half': beatDuration * 2,
     'quarter': beatDuration * 1,
@@ -98,7 +98,7 @@ runner.test('getNoteDuration returns correct duration for quarter note', (t) => 
   const beatDuration = 60 / BPM;
   const expected = beatDuration * 1;
 
-  const noteDurations = {
+  const noteDurations: Record<string, number> = {
     'whole': beatDuration * 4,
     'half': beatDuration * 2,
     'quarter': beatDuration * 1,
@@ -185,7 +185,7 @@ runner.test('Score system starts at zero', (t) => {
 runner.test('Score system adds points correctly', (t) => {
   let current = 0;
 
-  const addPoints = (points) => {
+  const addPoints = (points: number) => {
     current += points;
   };
 
@@ -212,7 +212,7 @@ runner.test('Score system resets correctly', (t) => {
 // ============================================================================
 
 runner.test('NOTE_KEY_MAP has correct structure', (t) => {
-  const NOTE_KEY_MAP = {
+  const NOTE_KEY_MAP: Record<string, number[]> = {
     "c": [6.5],
     "d": [6.0],
     "e": [5.5, 9.0],
@@ -229,7 +229,7 @@ runner.test('NOTE_KEY_MAP has correct structure', (t) => {
 });
 
 runner.test('NOTE_KEY_MAP contains all expected notes', (t) => {
-  const NOTE_KEY_MAP = {
+  const NOTE_KEY_MAP: Record<string, number[]> = {
     "c": [6.5],
     "d": [6.0],
     "e": [5.5, 9.0],
@@ -250,7 +250,17 @@ runner.test('NOTE_KEY_MAP contains all expected notes', (t) => {
 // ============================================================================
 
 runner.test('Obstacle generator creates valid obstacle object', (t) => {
-  const obstacleGenerator = (pixelX = 0, pixelY = 0, imagePath = null, speed = 100) => {
+  interface SimpleObstacle {
+    pixelX: number;
+    pixelY: number;
+    imagePath: string | null;
+    image: null;
+    speed: number;
+    hasBeenAvoided: boolean;
+    hasCollided: boolean;
+  }
+
+  const obstacleGenerator = (pixelX: number = 0, pixelY: number = 0, imagePath: string | null = null, speed: number = 100): SimpleObstacle => {
     return {
       pixelX,
       pixelY,
@@ -327,7 +337,13 @@ runner.test('checkMiss detects obstacle past overlay', (t) => {
   const CONFIG = { GRID_SIZE: 32 };
   const overlayStartX = 128; // 4 * 32
 
-  const checkMiss = (obstacle, playerX, overlayStartX) => {
+  interface ObstacleForTest {
+    pixelX: number;
+    hasBeenAvoided: boolean;
+    hasCollided: boolean;
+  }
+
+  const checkMiss = (obstacle: ObstacleForTest, playerX: number, overlayStartX: number) => {
     if (
       obstacle.pixelX + CONFIG.GRID_SIZE < overlayStartX &&
       !obstacle.hasBeenAvoided &&
@@ -339,7 +355,7 @@ runner.test('checkMiss detects obstacle past overlay', (t) => {
     return false;
   };
 
-  const obstacle = {
+  const obstacle: ObstacleForTest = {
     pixelX: 90, // 90 + 32 = 122, which is < 128
     hasBeenAvoided: false,
     hasCollided: false,
@@ -354,7 +370,13 @@ runner.test('checkMiss does not detect miss for obstacle still in overlay', (t) 
   const CONFIG = { GRID_SIZE: 32 };
   const overlayStartX = 128;
 
-  const checkMiss = (obstacle, playerX, overlayStartX) => {
+  interface ObstacleForTest {
+    pixelX: number;
+    hasBeenAvoided: boolean;
+    hasCollided: boolean;
+  }
+
+  const checkMiss = (obstacle: ObstacleForTest, playerX: number, overlayStartX: number) => {
     if (
       obstacle.pixelX + CONFIG.GRID_SIZE < overlayStartX &&
       !obstacle.hasBeenAvoided &&
@@ -366,7 +388,7 @@ runner.test('checkMiss does not detect miss for obstacle still in overlay', (t) 
     return false;
   };
 
-  const obstacle = {
+  const obstacle: ObstacleForTest = {
     pixelX: 200, // Still in overlay
     hasBeenAvoided: false,
     hasCollided: false,
@@ -404,7 +426,7 @@ runner.test('Grid Y calculation for note positions', (t) => {
 });
 
 runner.test('Note Y positions are on valid grid positions', (t) => {
-  const NOTE_KEY_MAP = {
+  const NOTE_KEY_MAP: Record<string, number[]> = {
     "c": [6.5],
     "d": [6.0],
     "e": [5.5, 9.0],
