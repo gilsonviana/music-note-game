@@ -658,6 +658,8 @@ const main = (debug: boolean = false): void => {
       this.isFlashing = true;
       this.color = color;
       this.progress = 0;
+      // Increase duration for red flash (missed notes) to make feedback more visible
+      this.duration = color === 'red' ? 0.5 : 0.3;
     },
     update(this: HitZoneFlash, delta: number): void {
       if (this.isFlashing) {
@@ -847,6 +849,7 @@ const main = (debug: boolean = false): void => {
     obstacles.forEach((obs) => {
       if (lives.checkMiss(obs, player.pixelX, overlayStartX)) {
         audio.playErrorSound();
+        hitZoneFlash.start('red');
         if (lives.isGameOver()) {
           gameState.isGameOver = true;
         }
@@ -1010,10 +1013,12 @@ const main = (debug: boolean = false): void => {
     // Draw hit zone flash effect
     if (hitZoneFlash.isFlashing) {
       const flashAlpha = hitZoneFlash.getAlpha();
-      ctx.fillStyle =
-        hitZoneFlash.color === 'green'
-          ? `rgba(76, 175, 80, ${flashAlpha * 0.6})`
-          : `rgba(255, 107, 107, ${flashAlpha * 0.6})`;
+      if (hitZoneFlash.color === 'green') {
+        ctx.fillStyle = `rgba(76, 175, 80, ${flashAlpha * 0.6})`;
+      } else {
+        // Red flash for missed notes - make it more visible
+        ctx.fillStyle = `rgba(255, 107, 107, ${flashAlpha * 0.8})`;
+      }
       ctx.fillRect(overlayStartX, startY, overlayWidth, staffHeight);
     }
 
