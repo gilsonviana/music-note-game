@@ -198,6 +198,7 @@ const main = (debug = false) => {
    */
   const audio = {
     context: null,
+    isMuted: false,
 
     // Musical notes mapped to grid Y positions (5-9 including half steps)
     // C major scale descending: higher on screen = higher pitch
@@ -234,7 +235,7 @@ const main = (debug = false) => {
     },
 
     playNote(pixelY, noteDuration = null) {
-      if (!this.context) return;
+      if (!this.context || this.isMuted) return;
 
       // Use provided duration or default to player's current note duration
       const duration = noteDuration !== null ? noteDuration : getNoteDuration(player.noteValue);
@@ -264,6 +265,11 @@ const main = (debug = false) => {
 
       oscillator.start(now);
       oscillator.stop(now + duration);
+    },
+
+    toggleMute() {
+      this.isMuted = !this.isMuted;
+      return this.isMuted;
     },
   };
 
@@ -766,6 +772,17 @@ const main = (debug = false) => {
         console.log(`Player note changed to: ${e.target.value}`);
       });
     });
+
+    // Setup mute button listener
+    const muteBtn = document.getElementById('mute-btn');
+    if (muteBtn) {
+      muteBtn.addEventListener('click', () => {
+        const isMuted = audio.toggleMute();
+        muteBtn.classList.toggle('muted', isMuted);
+        muteBtn.textContent = isMuted ? '🔇 Unmute' : '🔊 Mute';
+        console.log(`Audio ${isMuted ? 'muted' : 'unmuted'}`);
+      });
+    }
 
     // Store handlers for cleanup
     return { handleKeyDown, handleKeyUp };
