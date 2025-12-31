@@ -1084,6 +1084,17 @@ const main = (debug = false) => {
     };
 
     const handleKeyDown = (e) => {
+      // Handle restart key (allowed even when game is over)
+      if ((e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'R') && gameState.isGameOver) {
+        restartGame();
+        return;
+      }
+
+      // If game is over, don't process any other keys
+      if (gameState.isGameOver) {
+        return;
+      }
+
       // Initialize audio context on first user interaction
       if (audio.context && audio.context.state === 'suspended') {
         audio.context.resume();
@@ -1120,15 +1131,14 @@ const main = (debug = false) => {
         e.preventDefault();
         return;
       }
-
-      // Handle restart key
-      if ((e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'R') && gameState.isGameOver) {
-        restartGame();
-        return;
-      }
     };
 
     const handleKeyUp = (e) => {
+      // If game is over, don't process key releases
+      if (gameState.isGameOver) {
+        return;
+      }
+
       // Handle note keys (C, D, E, F, G, A, B)
       const noteGridYValues = NOTE_KEY_MAP[e.key.toLowerCase()];
       if (noteGridYValues !== undefined) {
