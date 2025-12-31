@@ -169,28 +169,28 @@ const main = (debug = false) => {
     // Musical notes mapped to grid Y positions (5-9 including half steps)
     // C major scale descending: higher on screen = higher pitch
     noteFrequencies: {
-      5.5: 698.46,  // F5
-      6: 659.25,    // E5
-      6.5: 587.33,  // D5
-      7: 523.25,    // C5
-      7.5: 493.88,  // B4
-      8: 440.00,    // A4
-      8.5: 392.00,  // G4
-      9: 349.23,    // F4
-      9.5: 329.63,    // E4
+      "5.0": 698.46,  // F5
+      "5.5": 659.25,    // E5
+      "6.0": 587.33,  // D5
+      "6.5": 523.25,    // C5
+      "7.0": 493.88,  // B4
+      "7.5": 440.00,    // A4
+      "8.0": 392.00,  // G4
+      "8.5": 349.23,    // F4
+      "9.0": 329.63,    // E4
     },
 
     // Note names for display
     noteNames: {
-      5.5: 'F',
-      6: 'E',
-      6.5: 'D',
-      7: 'C',
-      7.5: 'B',
-      8: 'A',
-      8.5: 'G',
-      9: 'F',
-      9.5: 'E',
+      "5.0": 'F',
+      "5.5": 'E',
+      "6.0": 'D',
+      "6.5": 'C',
+      "7.0": 'B',
+      "7.5": 'A',
+      "8.0": 'G',
+      "8.5": 'F',
+      "9.0": 'E',
     },
 
     init() {
@@ -206,7 +206,9 @@ const main = (debug = false) => {
       // Convert pixel Y to grid Y (including half positions)
       const gridY = pixelY / CONFIG.GRID_SIZE;
       const roundedGridY = Math.round(gridY * 2) / 2; // Round to nearest 0.5
-      const frequency = this.noteFrequencies[roundedGridY] || 261.63; // Default to C4
+      // Convert to string key to properly lookup in noteFrequencies object
+      const noteKey = roundedGridY.toFixed(1);
+      const frequency = this.noteFrequencies[noteKey] || 261.63; // Default to C4
 
       // Create oscillator
       const oscillator = this.context.createOscillator();
@@ -240,7 +242,9 @@ const main = (debug = false) => {
     show(pixelY) {
       const gridY = pixelY / CONFIG.GRID_SIZE;
       const roundedGridY = Math.round(gridY * 2) / 2;
-      this.noteName = audio.noteNames[roundedGridY] || 'C';
+      // Convert to string key to properly lookup in audio.noteNames object
+      const noteKey = roundedGridY.toFixed(1);
+      this.noteName = audio.noteNames[noteKey] || 'C';
       this.displayTime = 0;
     },
 
@@ -648,19 +652,18 @@ const main = (debug = false) => {
     if (debug) {
       ctx.fillStyle = "#333333";
       ctx.font = "12px Arial";
-      ctx.fillText(`Grid: (${player.gridX}, ${player.gridY})`, 10, 20);
-      const halfGridX = (player.pixelX / (CONFIG.GRID_SIZE / 2));
-      const halfGridY = (player.pixelY / (CONFIG.GRID_SIZE / 2));
-      ctx.fillText(`Half Grid: (${halfGridX.toFixed(1)}, ${halfGridY.toFixed(1)})`, 10, 32);
+      const gridX = (player.pixelX / CONFIG.GRID_SIZE).toFixed(1);
+      const gridY = (player.pixelY / CONFIG.GRID_SIZE).toFixed(1);
+      ctx.fillText(`Player Pos: (${gridX}, ${gridY})`, 10, 20);
       ctx.fillText(
         `Pixel: (${Math.round(player.getPixelX())}, ${Math.round(
           player.getPixelY()
         )})`,
         10,
-        44
+        32
       );
-      ctx.fillText(`Moving: ${movement.isMoving}`, 10, 56);
-      ctx.fillText(`Obstacles: ${obstacles.length}`, 10, 68);
+      ctx.fillText(`Moving: ${movement.isMoving}`, 10, 44);
+      ctx.fillText(`Obstacles: ${obstacles.length}`, 10, 56);
     }
   };
 
