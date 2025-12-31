@@ -268,25 +268,25 @@ const main = (debug = false) => {
    * Check if player is currently colliding with any obstacle
    */
   const checkPlayerCollisions = () => {
-    const playerGridX = player.gridX;
-    const playerGridY = player.gridY;
-    const playerPixelX = player.getPixelX();
-    const playerPixelY = player.getPixelY();
-
     obstacles.forEach((obs) => {
-      // Check if obstacle overlaps with player position
+      // Get player position (accounting for interpolated movement)
+      const playerPixelX = player.getPixelX();
+      const playerPixelY = player.getPixelY();
+
+      // Check X-axis overlap (obstacle must be at same X position as player)
       const dx = Math.abs(
         playerPixelX +
           CONFIG.PLAYER_SIZE / 2 -
           (obs.pixelX + CONFIG.GRID_SIZE / 2)
       );
-      const dy = Math.abs(
-        playerPixelY +
-          CONFIG.PLAYER_SIZE / 2 -
-          (obs.pixelY + CONFIG.GRID_SIZE / 2)
-      );
 
-      const collision = dx < CONFIG.PLAYER_SIZE && dy < CONFIG.PLAYER_SIZE;
+      // Check Y-axis overlap with half-grid precision
+      // Convert to grid Y positions and compare with one decimal place
+      const playerGridY = (playerPixelY / CONFIG.GRID_SIZE).toFixed(1);
+      const obsGridY = (obs.pixelY / CONFIG.GRID_SIZE).toFixed(1);
+
+      // Collision occurs when X overlaps AND Y positions match exactly (including half-grid)
+      const collision = dx < CONFIG.PLAYER_SIZE && playerGridY === obsGridY;
 
       if (collision && !obs.hasCollided) {
         obs.hasCollided = true;
@@ -872,7 +872,7 @@ const main = (debug = false) => {
 
 // Start the game when DOM is ready
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => main(true));
+  document.addEventListener("DOMContentLoaded", () => main());
 } else {
-  main(true);
+  main();
 }
