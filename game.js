@@ -85,7 +85,7 @@ const main = (debug = false) => {
     PLAYER_SIZE: 32,
     MOVE_SPEED: 0.15, // Seconds to move one grid cell
     PLAYER_INITIAL_GRID_X: 4,
-    PLAYER_INITIAL_GRID_Y: 7,
+    PLAYER_INITIAL_GRID_Y: 4,
     OBSTACLE_SPEED: 150, // pixels per second (moving left)
     OBSTACLE_SPAWN_INTERVAL: 2, // seconds between spawning obstacles
     OBSTACLE_SPAWN_Y: 5, // Grid Y position where obstacles spawn
