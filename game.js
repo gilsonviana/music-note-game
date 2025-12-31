@@ -50,8 +50,7 @@ const main = (debug = false) => {
 
   // Get selected player note value from UI
   const getSelectedPlayerNote = () => {
-    const radio = document.querySelector('input[name="player-note"]:checked');
-    return radio ? radio.value : 'half';
+    return uiState.selectedNote;
   };
 
   // Get player note icon path
@@ -200,9 +199,28 @@ const main = (debug = false) => {
 
   // Game state
   const gameState = {
+    hasStarted: false,
     isGameOver: false,
     isNoteKeyPressed: false, // Track if any note key is currently pressed
     currentNoteGridY: null, // Track the Y position of the currently pressed note
+  };
+
+  // UI state
+  const uiState = {
+    selectedNote: 'half',
+    noteImages: {},
+    isMuted: false,
+  };
+
+  // UI Layout constants
+  const UI_LAYOUT = {
+    sidebarWidth: 120,
+    noteIconSize: 32,
+    noteSpacing: 50,
+    startY: 80,
+    muteButtonY: 420,
+    muteButtonWidth: 100,
+    muteButtonHeight: 40,
   };
 
   /**
@@ -537,8 +555,9 @@ const main = (debug = false) => {
       // Random Y position between grid 5 and 9 (inclusive, with half-grid steps)
       const randomIndex = Math.floor(Math.random() * 9); // 0-8 for 9 positions
       const randomGridY = 5 + randomIndex * 0.5; // 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9
+      const gameWidth = canvas.width - UI_LAYOUT.sidebarWidth;
       const newObstacle = obstacleGenerator(
-        canvas.width,
+        gameWidth,
         randomGridY * CONFIG.GRID_SIZE,
         imagePath,
         CONFIG.OBSTACLE_SPEED
@@ -612,6 +631,77 @@ const main = (debug = false) => {
   };
 
   /**
+   * Draw UI sidebar on canvas
+   */
+  const drawUI = () => {
+    // Draw sidebar background
+    ctx.fillStyle = "#f0f0f0";
+    ctx.fillRect(0, 0, UI_LAYOUT.sidebarWidth, canvas.height);
+
+    // Draw sidebar border
+    ctx.strokeStyle = "#cccccc";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(UI_LAYOUT.sidebarWidth, 0);
+    ctx.lineTo(UI_LAYOUT.sidebarWidth, canvas.height);
+    ctx.stroke();
+
+    // Draw title
+    ctx.fillStyle = "#333333";
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("Player Note", UI_LAYOUT.sidebarWidth / 2, 30);
+
+    // Draw note options
+    const notes = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
+    notes.forEach((note, index) => {
+      const y = UI_LAYOUT.startY + index * UI_LAYOUT.noteSpacing;
+      const centerX = UI_LAYOUT.sidebarWidth / 2;
+
+      // Highlight selected note
+      if (note === uiState.selectedNote) {
+        ctx.fillStyle = "#4CAF50";
+        ctx.fillRect(10, y - UI_LAYOUT.noteIconSize / 2 - 5, UI_LAYOUT.sidebarWidth - 20, UI_LAYOUT.noteIconSize + 10);
+      }
+
+      // Draw note image
+      const img = uiState.noteImages[note];
+      if (img && img.complete) {
+        ctx.drawImage(
+          img,
+          centerX - UI_LAYOUT.noteIconSize / 2,
+          y - UI_LAYOUT.noteIconSize / 2,
+          UI_LAYOUT.noteIconSize,
+          UI_LAYOUT.noteIconSize
+        );
+      }
+
+      // Draw note label
+      ctx.fillStyle = note === uiState.selectedNote ? "#ffffff" : "#666666";
+      ctx.font = "11px Arial";
+      ctx.fillText(note.charAt(0).toUpperCase() + note.slice(1), centerX, y + UI_LAYOUT.noteIconSize / 2 + 12);
+    });
+
+    // Draw mute button
+    const muteX = 10;
+    const muteY = UI_LAYOUT.muteButtonY;
+    ctx.fillStyle = uiState.isMuted ? "#FF6B6B" : "#4CAF50";
+    ctx.fillRect(muteX, muteY, UI_LAYOUT.muteButtonWidth, UI_LAYOUT.muteButtonHeight);
+    ctx.strokeStyle = "#333333";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(muteX, muteY, UI_LAYOUT.muteButtonWidth, UI_LAYOUT.muteButtonHeight);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "20px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(
+      uiState.isMuted ? "🔇" : "🔊",
+      muteX + UI_LAYOUT.muteButtonWidth / 2,
+      muteY + UI_LAYOUT.muteButtonHeight / 2 + 7
+    );
+  };
+
+  /**
    * Render the game scene
    */
   const render = () => {
@@ -619,7 +709,15 @@ const main = (debug = false) => {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Draw UI sidebar
+    drawUI();
+
+    // Save context and translate for game area
+    ctx.save();
+    ctx.translate(UI_LAYOUT.sidebarWidth, 0);
+
     // Draw 5 horizontal background lines spaced by grid size, centered vertically
+    const gameWidth = canvas.width - UI_LAYOUT.sidebarWidth;
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = 2;
     const totalLineHeight = 4 * CONFIG.GRID_SIZE; // 4 gaps between 5 lines
@@ -628,7 +726,7 @@ const main = (debug = false) => {
       const y = startY + i * CONFIG.GRID_SIZE;
       ctx.beginPath();
       ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
+      ctx.lineTo(gameWidth, y);
       ctx.stroke();
     }
 
@@ -770,7 +868,7 @@ const main = (debug = false) => {
       ctx.font = "bold 72px Arial";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(noteDisplay.noteName, canvas.width / 2, canvas.height / 2);
+      ctx.fillText(noteDisplay.noteName, gameWidth / 2, canvas.height / 2);
       ctx.restore();
     }
 
@@ -778,22 +876,49 @@ const main = (debug = false) => {
     ctx.fillStyle = lives.current === 0 ? "#FF0000" : "#000000";
     ctx.font = "bold 24px Arial";
     ctx.textAlign = "right";
-    ctx.fillText(`Lives: ${lives.current}/${lives.max}`, canvas.width - 20, 30);
-    ctx.fillText(`Score: ${score.current}`, canvas.width - 20, 60);
+    ctx.fillText(`Lives: ${lives.current}/${lives.max}`, gameWidth - 20, 30);
+    ctx.fillText(`Score: ${score.current}`, gameWidth - 20, 60);
     ctx.textAlign = "left";
+
+    // Draw start screen
+    if (!gameState.hasStarted) {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.fillRect(0, 0, gameWidth, canvas.height);
+      ctx.fillStyle = "#00CC00";
+      ctx.font = "bold 72px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Music Note Game", gameWidth / 2, canvas.height / 2 - 80);
+
+      // Draw start button
+      const buttonWidth = 200;
+      const buttonHeight = 60;
+      const buttonX = gameWidth / 2 - buttonWidth / 2;
+      const buttonY = canvas.height / 2 + 20;
+
+      ctx.fillStyle = "#00CC00";
+      ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+      ctx.strokeStyle = "#FFFFFF";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 32px Arial";
+      ctx.fillText("START", gameWidth / 2, buttonY + buttonHeight / 2);
+    }
 
     // Draw game over message
     if (gameState.isGameOver) {
       ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, gameWidth, canvas.height);
       ctx.fillStyle = "#FF0000";
       ctx.font = "bold 72px Arial";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 60);
+      ctx.fillText("GAME OVER", gameWidth / 2, canvas.height / 2 - 60);
       ctx.fillStyle = "#FFFFFF";
       ctx.font = "bold 32px Arial";
-      ctx.fillText("Press R or click Restart to try again", canvas.width / 2, canvas.height / 2 + 40);
+      ctx.fillText("Press R to try again", gameWidth / 2, canvas.height / 2 + 40);
     }
 
     // Draw position info for debugging
@@ -813,6 +938,9 @@ const main = (debug = false) => {
       ctx.fillText(`Moving: ${movement.isMoving}`, 10, 44);
       ctx.fillText(`Obstacles: ${obstacles.length}`, 10, 56);
     }
+
+    // Restore context
+    ctx.restore();
   };
 
   /**
@@ -826,7 +954,7 @@ const main = (debug = false) => {
     // Cap delta time to prevent large jumps (e.g., if tab was inactive)
     const cappedDelta = Math.min(delta, 0.016); // ~60fps
 
-    if (!gameState.isGameOver) {
+    if (gameState.hasStarted && !gameState.isGameOver) {
       update(cappedDelta);
     }
     render();
@@ -904,6 +1032,57 @@ const main = (debug = false) => {
    * Setup event listeners for input handling
    */
   const setupInputHandlers = () => {
+    // Handle canvas click for start button and UI interactions
+    const handleCanvasClick = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // Handle start button click
+      if (!gameState.hasStarted) {
+        const buttonWidth = 200;
+        const buttonHeight = 60;
+        const buttonX = canvas.width / 2 - buttonWidth / 2;
+        const buttonY = canvas.height / 2 + 20;
+
+        if (x >= buttonX && x <= buttonX + buttonWidth &&
+            y >= buttonY && y <= buttonY + buttonHeight) {
+          gameState.hasStarted = true;
+          // Initialize audio context on first interaction
+          if (audio.context && audio.context.state === 'suspended') {
+            audio.context.resume();
+          }
+        }
+        return;
+      }
+
+      // Handle UI sidebar clicks
+      if (x < UI_LAYOUT.sidebarWidth) {
+        // Check note selection clicks
+        const notes = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
+        notes.forEach((note, index) => {
+          const noteY = UI_LAYOUT.startY + index * UI_LAYOUT.noteSpacing;
+          const clickAreaTop = noteY - UI_LAYOUT.noteIconSize / 2 - 5;
+          const clickAreaBottom = noteY + UI_LAYOUT.noteIconSize / 2 + 15;
+
+          if (y >= clickAreaTop && y <= clickAreaBottom) {
+            uiState.selectedNote = note;
+            player.updateNoteValue();
+            console.log(`Player note changed to: ${note}`);
+          }
+        });
+
+        // Check mute button click
+        const muteX = 10;
+        const muteY = UI_LAYOUT.muteButtonY;
+        if (x >= muteX && x <= muteX + UI_LAYOUT.muteButtonWidth &&
+            y >= muteY && y <= muteY + UI_LAYOUT.muteButtonHeight) {
+          uiState.isMuted = audio.toggleMute();
+          console.log(`Audio ${uiState.isMuted ? 'muted' : 'unmuted'}`);
+        }
+      }
+    };
+
     const handleKeyDown = (e) => {
       // Initialize audio context on first user interaction
       if (audio.context && audio.context.state === 'suspended') {
@@ -960,37 +1139,9 @@ const main = (debug = false) => {
       }
     };
 
+    canvas.addEventListener("click", handleCanvasClick);
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-
-    // Setup player note selector listeners
-    const playerNoteRadios = document.querySelectorAll('input[name="player-note"]');
-    playerNoteRadios.forEach((radio) => {
-      radio.addEventListener("change", (e) => {
-        player.updateNoteValue();
-        console.log(`Player note changed to: ${e.target.value}`);
-      });
-    });
-
-    // Setup mute button listener
-    const muteBtn = document.getElementById('mute-btn');
-    if (muteBtn) {
-      muteBtn.addEventListener('click', () => {
-        const isMuted = audio.toggleMute();
-        muteBtn.classList.toggle('muted', isMuted);
-        muteBtn.textContent = isMuted ? '🔇 Unmute' : '🔊 Mute';
-        console.log(`Audio ${isMuted ? 'muted' : 'unmuted'}`);
-      });
-    }
-
-    // Setup restart button listener
-    const restartBtn = document.getElementById('restart-btn');
-    if (restartBtn) {
-      restartBtn.addEventListener('click', () => {
-        restartGame();
-        console.log('Game restarted');
-      });
-    }
 
     // Store handlers for cleanup
     return { handleKeyDown, handleKeyUp };
@@ -1008,6 +1159,7 @@ const main = (debug = false) => {
 
     // Clear game over state
     gameState.isGameOver = false;
+    gameState.hasStarted = true; // Keep game started on restart
 
     // Clear obstacles
     obstacles.length = 0;
@@ -1095,6 +1247,28 @@ const main = (debug = false) => {
   };
 
   /**
+   * Load UI note images
+   */
+  const loadUIImages = async () => {
+    const notes = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
+    const promises = notes.map(note =>
+      new Promise((resolve) => {
+        const img = new Image();
+        img.src = getPlayerNoteIcon(note);
+        img.onload = () => {
+          uiState.noteImages[note] = img;
+          resolve();
+        };
+        img.onerror = () => {
+          console.warn(`Failed to load UI image for ${note}`);
+          resolve();
+        };
+      })
+    );
+    return Promise.all(promises);
+  };
+
+  /**
    * Load treble clef image
    */
   const loadTrebleClefImage = async () => {
@@ -1154,6 +1328,9 @@ const main = (debug = false) => {
 
     // Load treble clef image
     await loadTrebleClefImage();
+
+    // Load UI images
+    await loadUIImages();
 
     // Preload all monster images for spawned obstacles
     await Promise.all(
