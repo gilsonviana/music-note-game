@@ -150,6 +150,16 @@ interface NoteDisplay {
   getAlpha(): number;
 }
 
+interface HitZoneFlash {
+  isFlashing: boolean;
+  color: 'green' | 'red';
+  progress: number;
+  duration: number;
+  start(color: 'green' | 'red'): void;
+  update(delta: number): void;
+  getAlpha(): number;
+}
+
 const obstacleGenerator = (
   pixelX: number = 0,
   pixelY: number = 0,
@@ -582,6 +592,32 @@ const main = (debug: boolean = false): void => {
     },
   };
 
+  // Hit zone flash effect
+  const hitZoneFlash: HitZoneFlash = {
+    isFlashing: false,
+    color: 'green',
+    progress: 0,
+    duration: 0.3,
+    start(this: HitZoneFlash, color: 'green' | 'red'): void {
+      this.isFlashing = true;
+      this.color = color;
+      this.progress = 0;
+    },
+    update(this: HitZoneFlash, delta: number): void {
+      if (this.isFlashing) {
+        this.progress += delta / this.duration;
+        if (this.progress >= 1) {
+          this.progress = 1;
+          this.isFlashing = false;
+        }
+      }
+    },
+    getAlpha(this: HitZoneFlash): number {
+      if (!this.isFlashing) return 0;
+      return Math.max(0, 1 - this.progress);
+    },
+  };
+
   /**
    * Check if player is currently colliding with any obstacle
    */
@@ -608,6 +644,7 @@ const main = (debug: boolean = false): void => {
         noteDisplay.show(obs.pixelY);
         obs.fadeAnimation.start();
         playerAnimation.start();
+        hitZoneFlash.start('green');
       }
     });
   };
@@ -780,6 +817,7 @@ const main = (debug: boolean = false): void => {
     checkPlayerCollisions();
     playerAnimation.update(delta);
     noteDisplay.update(delta);
+    hitZoneFlash.update(delta);
   };
 
   /**
@@ -897,6 +935,15 @@ const main = (debug: boolean = false): void => {
 
     ctx.fillStyle = 'rgba(144, 238, 144, 0.3)';
     ctx.fillRect(overlayStartX, startY, overlayWidth, staffHeight);
+
+    // Draw hit zone flash effect
+    if (hitZoneFlash.isFlashing) {
+      const flashAlpha = hitZoneFlash.getAlpha();
+      ctx.fillStyle = hitZoneFlash.color === 'green'
+        ? `rgba(76, 175, 80, ${flashAlpha * 0.6})`
+        : `rgba(255, 107, 107, ${flashAlpha * 0.6})`;
+      ctx.fillRect(overlayStartX, startY, overlayWidth, staffHeight);
+    }
 
     if (debug) {
       ctx.strokeStyle = '#e0e0e0';
@@ -1137,6 +1184,7 @@ const main = (debug: boolean = false): void => {
     if (hasObstacleInOverlay && !hitCorrectNote) {
       lives.loseLife();
       audio.playErrorSound();
+      hitZoneFlash.start('red');
 
       if (lives.isGameOver()) {
         gameState.isGameOver = true;
