@@ -1,0 +1,10 @@
+# Ignore build outputs
+dist/
+*.js
+*.js.map
+
+# Ignore dependencies
+node_modules/
+
+# Ignore test files for now
+*.test.ts

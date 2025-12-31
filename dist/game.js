@@ -1,5 +1,7 @@
 "use strict";
 // Type definitions for the game
+// Constants
+const NOTE_VALUES = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
 const obstacleGenerator = (pixelX = 0, pixelY = 0, imagePath = null, speed = 100) => {
     return {
         pixelX,
@@ -27,13 +29,15 @@ const obstacleGenerator = (pixelX = 0, pixelY = 0, imagePath = null, speed = 100
                 }
             },
             getAlpha() {
-                if (!this.isAnimating)
+                if (!this.isAnimating) {
                     return 1;
+                }
                 return Math.max(0, 1 - this.progress);
             },
             getScale() {
-                if (!this.isAnimating)
+                if (!this.isAnimating) {
                     return 1;
+                }
                 const explosionPhase = this.progress;
                 if (explosionPhase < 0.3) {
                     return 1 + explosionPhase * 0.5;
@@ -43,13 +47,15 @@ const obstacleGenerator = (pixelX = 0, pixelY = 0, imagePath = null, speed = 100
                 }
             },
             getRotation() {
-                if (!this.isAnimating)
+                if (!this.isAnimating) {
                     return 0;
+                }
                 return this.progress * Math.PI * 4;
             },
             getShake() {
-                if (!this.isAnimating)
+                if (!this.isAnimating) {
                     return { x: 0, y: 0 };
+                }
                 const shakeAmount = (1 - this.progress) * 8;
                 return {
                     x: (Math.random() - 0.5) * shakeAmount,
@@ -111,6 +117,7 @@ const main = (debug = false) => {
         MISS_POINTS_LOST: -50,
         ENABLE_X_AXIS_MOVEMENT: false,
         BPM: 90,
+        STAFF_POSITIONS: 9,
     };
     // Movement state
     const movement = {
@@ -143,7 +150,8 @@ const main = (debug = false) => {
         currentImageIndex: 0,
         getNextImage() {
             const img = this.monsterImages[this.currentImageIndex];
-            this.currentImageIndex = (this.currentImageIndex + 1) % this.monsterImages.length;
+            this.currentImageIndex =
+                (this.currentImageIndex + 1) % this.monsterImages.length;
             return img;
         },
     };
@@ -224,7 +232,7 @@ const main = (debug = false) => {
     /**
      * Check if a grid position is blocked by an obstacle
      */
-    const getObstacleAt = (gridX, gridY) => {
+    const _getObstacleAt = (gridX, gridY) => {
         const pixelX = gridX * CONFIG.GRID_SIZE;
         const pixelY = gridY * CONFIG.GRID_SIZE;
         const tolerance = CONFIG.GRID_SIZE / 2;
@@ -265,46 +273,50 @@ const main = (debug = false) => {
                 this.context = new AudioContextClass();
             }
             if (this.context && this.context.state === 'suspended') {
-                this.context.resume().catch((err) => {
+                void this.context.resume().catch((err) => {
                     console.warn('Failed to resume audio context:', err);
                 });
             }
         },
         playNote(pixelY, noteDuration = null) {
-            if (!this.context || this.isMuted)
+            if (!this.context || this.isMuted) {
                 return;
-            const duration = noteDuration !== null ? noteDuration : getNoteDuration(player.noteValue);
+            }
+            const duration = noteDuration !== null
+                ? noteDuration
+                : getNoteDuration(player.noteValue);
             const gridY = pixelY / CONFIG.GRID_SIZE;
             const roundedGridY = Math.round(gridY * 2) / 2;
             const noteKey = roundedGridY.toFixed(1);
             const frequency = this.noteFrequencies[noteKey] || 261.63;
             const now = this.context.currentTime;
-            const attackTime = 0.02;
-            const decayTime = 0.3;
-            const sustainLevel = 0.15;
-            const releaseTime = 0.5;
+            // Warmer, more gentle envelope
+            const attackTime = 0.05; // Slower attack for gentler sound
+            const decayTime = 0.4;
+            const sustainLevel = 0.12;
+            const releaseTime = 0.8; // Longer release for warmth
             const osc1 = this.context.createOscillator();
             const gain1 = this.context.createGain();
             osc1.connect(gain1);
             gain1.connect(this.context.destination);
             osc1.frequency.value = frequency;
-            osc1.type = 'triangle';
+            osc1.type = 'sine'; // Changed from triangle to sine for warmer tone
             const osc2 = this.context.createOscillator();
             const gain2 = this.context.createGain();
             osc2.connect(gain2);
             gain2.connect(this.context.destination);
             osc2.frequency.value = frequency * 2;
-            osc2.type = 'triangle';
-            gain2.gain.setValueAtTime(0.1, now);
+            osc2.type = 'sine'; // Changed from triangle to sine
+            gain2.gain.setValueAtTime(0.04, now); // Reduced from 0.1 to 0.04
             const osc3 = this.context.createOscillator();
             const gain3 = this.context.createGain();
             osc3.connect(gain3);
             gain3.connect(this.context.destination);
             osc3.frequency.value = frequency * 3;
             osc3.type = 'sine';
-            gain3.gain.setValueAtTime(0.05, now);
+            gain3.gain.setValueAtTime(0.015, now); // Reduced from 0.05 to 0.015
             gain1.gain.setValueAtTime(0, now);
-            gain1.gain.linearRampToValueAtTime(0.35, now + attackTime);
+            gain1.gain.linearRampToValueAtTime(0.3, now + attackTime); // Reduced from 0.35
             gain1.gain.linearRampToValueAtTime(sustainLevel, now + attackTime + decayTime);
             const noteEndTime = now + duration;
             gain1.gain.linearRampToValueAtTime(0, noteEndTime + releaseTime);
@@ -316,11 +328,12 @@ const main = (debug = false) => {
             osc3.stop(noteEndTime + releaseTime);
         },
         playErrorSound() {
-            if (!this.context || this.isMuted)
+            if (!this.context || this.isMuted) {
                 return;
+            }
             try {
                 if (this.context.state === 'suspended') {
-                    this.context.resume();
+                    void this.context.resume();
                 }
                 const oscillator = this.context.createOscillator();
                 const gainNode = this.context.createGain();
@@ -368,9 +381,37 @@ const main = (debug = false) => {
             }
         },
         getAlpha() {
-            if (!this.noteName)
+            if (!this.noteName) {
                 return 0;
+            }
             return Math.max(0, 1 - this.displayTime / this.displayDuration);
+        },
+    };
+    // Hit zone flash effect
+    const hitZoneFlash = {
+        isFlashing: false,
+        color: 'green',
+        progress: 0,
+        duration: 0.3,
+        start(color) {
+            this.isFlashing = true;
+            this.color = color;
+            this.progress = 0;
+        },
+        update(delta) {
+            if (this.isFlashing) {
+                this.progress += delta / this.duration;
+                if (this.progress >= 1) {
+                    this.progress = 1;
+                    this.isFlashing = false;
+                }
+            }
+        },
+        getAlpha() {
+            if (!this.isFlashing) {
+                return 0;
+            }
+            return Math.max(0, 1 - this.progress);
         },
     };
     /**
@@ -393,6 +434,7 @@ const main = (debug = false) => {
                 noteDisplay.show(obs.pixelY);
                 obs.fadeAnimation.start();
                 playerAnimation.start();
+                hitZoneFlash.start('green');
             }
         });
     };
@@ -453,14 +495,16 @@ const main = (debug = false) => {
             }
         },
         getScale() {
-            if (!this.isAnimating)
+            if (!this.isAnimating) {
                 return 1;
+            }
             const t = this.progress;
             return 1 + 0.3 * Math.sin(t * Math.PI);
         },
         getShake() {
-            if (!this.isAnimating)
+            if (!this.isAnimating) {
                 return { x: 0, y: 0 };
+            }
             const t = this.progress;
             const intensity = 5 * (1 - t);
             return {
@@ -488,14 +532,14 @@ const main = (debug = false) => {
             gameState.difficulty = newDifficulty;
         }
         if (player.image === null && player.imagePath) {
-            loadPlayerImage();
+            void loadPlayerImage();
         }
         obstacleSpawner.timeSinceLastSpawn += delta;
         const currentSpawnInterval = getSpawnInterval(gameState.difficulty);
         if (obstacleSpawner.timeSinceLastSpawn >= currentSpawnInterval) {
             obstacleSpawner.timeSinceLastSpawn = 0;
             const imagePath = obstacleSpawner.getNextImage();
-            const randomIndex = Math.floor(Math.random() * 9);
+            const randomIndex = Math.floor(Math.random() * CONFIG.STAFF_POSITIONS);
             const randomGridY = 5 + randomIndex * 0.5;
             const gameWidth = canvas.width - UI_LAYOUT.sidebarWidth;
             const currentSpeed = getObstacleSpeed(gameState.difficulty);
@@ -513,7 +557,7 @@ const main = (debug = false) => {
         const obstacleSpeed = 150;
         const overlayWidth = noteDuration * obstacleSpeed;
         const overlayStartX = trebleClef.x + trebleClef.width;
-        const overlayEndX = overlayStartX + overlayWidth;
+        const _overlayEndX = overlayStartX + overlayWidth;
         obstacles.forEach((obs) => {
             if (lives.checkMiss(obs, player.pixelX, overlayStartX)) {
                 audio.playErrorSound();
@@ -533,8 +577,8 @@ const main = (debug = false) => {
             movement.moveProgress += delta / CONFIG.MOVE_SPEED;
             if (movement.moveProgress >= 1) {
                 movement.moveProgress = 1;
-                player.pixelX = movement.nextPixelX;
-                player.pixelY = movement.nextPixelY;
+                player.pixelX = movement.nextPixelX ?? 0;
+                player.pixelY = movement.nextPixelY ?? 0;
                 movement.isMoving = false;
                 movement.nextPixelX = null;
                 movement.nextPixelY = null;
@@ -543,6 +587,7 @@ const main = (debug = false) => {
         checkPlayerCollisions();
         playerAnimation.update(delta);
         noteDisplay.update(delta);
+        hitZoneFlash.update(delta);
     };
     /**
      * Draw UI sidebar on canvas
@@ -560,8 +605,7 @@ const main = (debug = false) => {
         ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.fillText('Player Note', UI_LAYOUT.sidebarWidth / 2, 30);
-        const notes = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
-        notes.forEach((note, index) => {
+        NOTE_VALUES.forEach((note, index) => {
             const y = UI_LAYOUT.startY + index * UI_LAYOUT.noteSpacing;
             const centerX = UI_LAYOUT.sidebarWidth / 2;
             if (note === uiState.selectedNote) {
@@ -619,6 +663,15 @@ const main = (debug = false) => {
         const staffHeight = 4 * CONFIG.GRID_SIZE;
         ctx.fillStyle = 'rgba(144, 238, 144, 0.3)';
         ctx.fillRect(overlayStartX, startY, overlayWidth, staffHeight);
+        // Draw hit zone flash effect
+        if (hitZoneFlash.isFlashing) {
+            const flashAlpha = hitZoneFlash.getAlpha();
+            ctx.fillStyle =
+                hitZoneFlash.color === 'green'
+                    ? `rgba(76, 175, 80, ${flashAlpha * 0.6})`
+                    : `rgba(255, 107, 107, ${flashAlpha * 0.6})`;
+            ctx.fillRect(overlayStartX, startY, overlayWidth, staffHeight);
+        }
         if (debug) {
             ctx.strokeStyle = '#e0e0e0';
             ctx.lineWidth = 1;
@@ -707,7 +760,6 @@ const main = (debug = false) => {
         ctx.fillStyle = lives.current === 0 ? '#FF0000' : '#000000';
         ctx.font = 'bold 24px Arial';
         ctx.textAlign = 'right';
-        ctx.fillText(`Lives: ${lives.current}/${lives.max}`, gameWidth - 20, 30);
         ctx.fillText(`Score: ${score.current}`, gameWidth - 20, 60);
         if (gameState.hasStarted && !gameState.isGameOver) {
             ctx.fillStyle = '#4CAF50';
@@ -819,11 +871,16 @@ const main = (debug = false) => {
         if (hasObstacleInOverlay && !hitCorrectNote) {
             lives.loseLife();
             audio.playErrorSound();
+            hitZoneFlash.start('red');
             if (lives.isGameOver()) {
                 gameState.isGameOver = true;
             }
         }
     };
+    /**
+     * Cleanup function for event listeners
+     */
+    let _cleanupEventListeners = null;
     /**
      * Setup event listeners for input handling
      */
@@ -843,14 +900,13 @@ const main = (debug = false) => {
                     y <= buttonY + buttonHeight) {
                     gameState.hasStarted = true;
                     if (audio.context && audio.context.state === 'suspended') {
-                        audio.context.resume();
+                        void audio.context.resume();
                     }
                 }
                 return;
             }
             if (x < UI_LAYOUT.sidebarWidth) {
-                const notes = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
-                notes.forEach((note, index) => {
+                NOTE_VALUES.forEach((note, index) => {
                     const noteY = UI_LAYOUT.startY + index * UI_LAYOUT.noteSpacing;
                     const clickAreaTop = noteY - UI_LAYOUT.noteIconSize / 2 - 5;
                     const clickAreaBottom = noteY + UI_LAYOUT.noteIconSize / 2 + 15;
@@ -872,7 +928,7 @@ const main = (debug = false) => {
             }
         };
         const handleKeyDown = (e) => {
-            if ((e.key.toLowerCase() === 'r') && gameState.isGameOver) {
+            if (e.key.toLowerCase() === 'r' && gameState.isGameOver) {
                 restartGame();
                 return;
             }
@@ -880,12 +936,14 @@ const main = (debug = false) => {
                 return;
             }
             if (audio.context && audio.context.state === 'suspended') {
-                audio.context.resume();
+                void audio.context.resume();
             }
             const noteGridYValues = NOTE_KEY_MAP[e.key.toLowerCase()];
             if (noteGridYValues !== undefined) {
                 gameState.isNoteKeyPressed = true;
-                const gridYArray = Array.isArray(noteGridYValues) ? noteGridYValues : [noteGridYValues];
+                const gridYArray = Array.isArray(noteGridYValues)
+                    ? noteGridYValues
+                    : [noteGridYValues];
                 let targetGridY = gridYArray[0];
                 const obstaclesAtNote = obstacles.filter((obs) => {
                     const obsGridY = (obs.pixelY / CONFIG.GRID_SIZE).toFixed(1);
@@ -917,7 +975,27 @@ const main = (debug = false) => {
         canvas.addEventListener('click', handleCanvasClick);
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
-        return { handleKeyDown, handleKeyUp };
+        // Store cleanup function
+        _cleanupEventListeners = () => {
+            canvas.removeEventListener('click', handleCanvasClick);
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+            console.log('Event listeners cleaned up');
+        };
+    };
+    /**
+     * Generic image loader helper
+     */
+    const loadImage = (src) => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = src;
+            img.onload = () => resolve(img);
+            img.onerror = () => {
+                console.warn(`Failed to load image: ${src}`);
+                reject(new Error(`Failed to load image: ${src}`));
+            };
+        });
     };
     /**
      * Restart the game
@@ -949,90 +1027,69 @@ const main = (debug = false) => {
     const loadMonsterImages = async () => {
         const monsterImages = new Set();
         obstacles.forEach((obs) => {
-            if (obs.imagePath)
+            if (obs.imagePath) {
                 monsterImages.add(obs.imagePath);
+            }
         });
         obstacleSpawner.monsterImages.forEach((path) => {
             monsterImages.add(path);
         });
-        const imagePromises = Array.from(monsterImages).map((imagePath) => new Promise((resolve) => {
-            const img = new Image();
-            img.src = imagePath;
-            img.onload = () => {
+        const imagePromises = Array.from(monsterImages).map(async (imagePath) => {
+            try {
+                const img = await loadImage(imagePath);
                 obstacles.forEach((obs) => {
                     if (obs.imagePath === imagePath) {
                         obs.image = img;
                     }
                 });
-                resolve();
-            };
-            img.onerror = () => {
-                console.warn(`Failed to load image: ${imagePath}`);
-                resolve();
-            };
-        }));
+            }
+            catch {
+                // Error already logged in loadImage
+            }
+        });
         return Promise.all(imagePromises);
     };
     /**
      * Load player image
      */
     const loadPlayerImage = async () => {
-        return new Promise((resolve) => {
-            if (!player.imagePath) {
-                resolve();
-                return;
-            }
-            const img = new Image();
-            img.src = player.imagePath;
-            img.onload = () => {
-                player.image = img;
-                resolve();
-            };
-            img.onerror = () => {
-                console.warn(`Failed to load player image: ${player.imagePath}`);
-                resolve();
-            };
-        });
+        if (!player.imagePath) {
+            return;
+        }
+        try {
+            player.image = await loadImage(player.imagePath);
+        }
+        catch {
+            // Error already logged in loadImage
+        }
     };
     /**
      * Load UI note images
      */
     const loadUIImages = async () => {
-        const notes = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
-        const promises = notes.map((note) => new Promise((resolve) => {
-            const img = new Image();
-            img.src = getPlayerNoteIcon(note);
-            img.onload = () => {
-                uiState.noteImages[note] = img;
-                resolve();
-            };
-            img.onerror = () => {
-                console.warn(`Failed to load UI image for ${note}`);
-                resolve();
-            };
-        }));
+        const promises = NOTE_VALUES.map(async (note) => {
+            try {
+                uiState.noteImages[note] = await loadImage(getPlayerNoteIcon(note));
+            }
+            catch {
+                // Error already logged in loadImage
+            }
+        });
         return Promise.all(promises);
     };
     /**
      * Load treble clef image
      */
     const loadTrebleClefImage = async () => {
-        return new Promise((resolve) => {
-            if (!trebleClef.imagePath) {
-                resolve();
-                return;
-            }
-            const img = new Image();
-            img.src = trebleClef.imagePath;
-            img.onload = () => {
-                trebleClef.image = img;
-                resolve();
-            };
-            img.onerror = () => {
-                console.warn(`Failed to load treble clef image: ${trebleClef.imagePath}`);
-                resolve();
-            };
-        });
+        if (!trebleClef.imagePath) {
+            return;
+        }
+        try {
+            trebleClef.image = await loadImage(trebleClef.imagePath);
+        }
+        catch {
+            // Error already logged in loadImage
+        }
     };
     /**
      * Cache for loaded monster images
@@ -1059,24 +1116,20 @@ const main = (debug = false) => {
         await loadPlayerImage();
         await loadTrebleClefImage();
         await loadUIImages();
-        await Promise.all(obstacleSpawner.monsterImages.map((imagePath) => new Promise((resolve) => {
-            const img = new Image();
-            img.src = imagePath;
-            img.onload = () => {
-                imageCache[imagePath] = img;
-                resolve();
-            };
-            img.onerror = () => {
-                console.warn(`Failed to preload image: ${imagePath}`);
-                resolve();
-            };
-        })));
+        await Promise.all(obstacleSpawner.monsterImages.map(async (imagePath) => {
+            try {
+                imageCache[imagePath] = await loadImage(imagePath);
+            }
+            catch {
+                // Error already logged in loadImage
+            }
+        }));
         setupInputHandlers();
         audio.init();
         console.log('Game initialized successfully');
         return true;
     };
-    init().then((isReady) => {
+    void init().then((isReady) => {
         if (isReady) {
             requestAnimationFrame(loop);
         }

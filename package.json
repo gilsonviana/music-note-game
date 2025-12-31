@@ -7,7 +7,9 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "dev": "esbuild game.ts --bundle --watch --servedir=. --outdir=dist",
-    "test": "ts-node game.test.ts"
+    "test": "ts-node game.test.ts",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix"
   },
   "keywords": [
     "game",
@@ -18,8 +20,11 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "typescript": "^5.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.51.0",
+    "@typescript-eslint/parser": "^8.51.0",
+    "esbuild": "^0.19.0",
+    "eslint": "^8.56.0",
     "ts-node": "^10.9.1",
-    "esbuild": "^0.19.0"
+    "typescript": "^5.3.0"
   }
 }

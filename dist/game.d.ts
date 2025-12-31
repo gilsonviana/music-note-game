@@ -46,6 +46,7 @@ interface Config {
     MISS_POINTS_LOST: number;
     ENABLE_X_AXIS_MOVEMENT: boolean;
     BPM: number;
+    STAFF_POSITIONS: number;
 }
 interface NoteKeyMap {
     [key: string]: number[];
@@ -138,5 +139,15 @@ interface NoteDisplay {
     update(delta: number): void;
     getAlpha(): number;
 }
+interface HitZoneFlash {
+    isFlashing: boolean;
+    color: 'green' | 'red';
+    progress: number;
+    duration: number;
+    start(color: 'green' | 'red'): void;
+    update(delta: number): void;
+    getAlpha(): number;
+}
+declare const NOTE_VALUES: Array<'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'>;
 declare const obstacleGenerator: (pixelX?: number, pixelY?: number, imagePath?: string | null, speed?: number) => ObstacleGenerator;
 declare const main: (debug?: boolean) => void;

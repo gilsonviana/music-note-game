@@ -67,7 +67,11 @@ interface Lives {
   current: number;
   max: number;
   loseLife(): boolean;
-  checkMiss(obstacle: ObstacleGenerator, playerX: number, overlayStartX: number): boolean;
+  checkMiss(
+    obstacle: ObstacleGenerator,
+    playerX: number,
+    overlayStartX: number
+  ): boolean;
   isGameOver(): boolean;
   reset(): void;
 }
@@ -162,13 +166,9 @@ interface HitZoneFlash {
 }
 
 // Constants
-const NOTE_VALUES: Array<'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'> = [
-  'whole',
-  'half',
-  'quarter',
-  'eighth',
-  'sixteenth',
-];
+const NOTE_VALUES: Array<
+  'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'
+> = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
 
 const obstacleGenerator = (
   pixelX: number = 0,
@@ -202,11 +202,15 @@ const obstacleGenerator = (
         }
       },
       getAlpha(this: FadeAnimation): number {
-        if (!this.isAnimating) return 1;
+        if (!this.isAnimating) {
+          return 1;
+        }
         return Math.max(0, 1 - this.progress);
       },
       getScale(this: FadeAnimation): number {
-        if (!this.isAnimating) return 1;
+        if (!this.isAnimating) {
+          return 1;
+        }
         const explosionPhase = this.progress;
         if (explosionPhase < 0.3) {
           return 1 + explosionPhase * 0.5;
@@ -215,11 +219,15 @@ const obstacleGenerator = (
         }
       },
       getRotation(this: FadeAnimation): number {
-        if (!this.isAnimating) return 0;
+        if (!this.isAnimating) {
+          return 0;
+        }
         return this.progress * Math.PI * 4;
       },
       getShake(this: FadeAnimation): { x: number; y: number } {
-        if (!this.isAnimating) return { x: 0, y: 0 };
+        if (!this.isAnimating) {
+          return { x: 0, y: 0 };
+        }
         const shakeAmount = (1 - this.progress) * 8;
         return {
           x: (Math.random() - 0.5) * shakeAmount,
@@ -244,13 +252,23 @@ const main = (debug: boolean = false): void => {
   };
 
   // Get selected player note value from UI
-  const getSelectedPlayerNote = (): 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth' => {
+  const getSelectedPlayerNote = ():
+    | 'whole'
+    | 'half'
+    | 'quarter'
+    | 'eighth'
+    | 'sixteenth' => {
     return uiState.selectedNote;
   };
 
   // Get player note icon path
-  const getPlayerNoteIcon = (noteValue: 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'): string => {
-    const noteIcons: Record<'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth', string> = {
+  const getPlayerNoteIcon = (
+    noteValue: 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'
+  ): string => {
+    const noteIcons: Record<
+      'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth',
+      string
+    > = {
       whole: 'assets/MusicIcons/whole-note.png',
       half: 'assets/MusicIcons/half-note.png',
       quarter: 'assets/MusicIcons/quarter-note.png',
@@ -261,9 +279,14 @@ const main = (debug: boolean = false): void => {
   };
 
   // Get note duration in seconds based on note value
-  const getNoteDuration = (noteValue: 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'): number => {
+  const getNoteDuration = (
+    noteValue: 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'
+  ): number => {
     const beatDuration = 60 / CONFIG.BPM;
-    const noteDurations: Record<'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth', number> = {
+    const noteDurations: Record<
+      'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth',
+      number
+    > = {
       whole: beatDuration * 4,
       half: beatDuration * 2,
       quarter: beatDuration * 1,
@@ -324,7 +347,8 @@ const main = (debug: boolean = false): void => {
     currentImageIndex: 0,
     getNextImage(this: ObstacleSpawner): string {
       const img = this.monsterImages[this.currentImageIndex];
-      this.currentImageIndex = (this.currentImageIndex + 1) % this.monsterImages.length;
+      this.currentImageIndex =
+        (this.currentImageIndex + 1) % this.monsterImages.length;
       return img;
     },
   };
@@ -339,7 +363,12 @@ const main = (debug: boolean = false): void => {
       }
       return this.isGameOver();
     },
-    checkMiss(this: Lives, obstacle: ObstacleGenerator, playerX: number, overlayStartX: number): boolean {
+    checkMiss(
+      this: Lives,
+      obstacle: ObstacleGenerator,
+      playerX: number,
+      overlayStartX: number
+    ): boolean {
       if (
         obstacle.pixelX + CONFIG.GRID_SIZE < overlayStartX &&
         !obstacle.hasBeenAvoided &&
@@ -415,7 +444,10 @@ const main = (debug: boolean = false): void => {
   /**
    * Check if a grid position is blocked by an obstacle
    */
-  const getObstacleAt = (gridX: number, gridY: number): ObstacleGenerator | null => {
+  const _getObstacleAt = (
+    gridX: number,
+    gridY: number
+  ): ObstacleGenerator | null => {
     const pixelX = gridX * CONFIG.GRID_SIZE;
     const pixelY = gridY * CONFIG.GRID_SIZE;
     const tolerance = CONFIG.GRID_SIZE / 2;
@@ -462,20 +494,26 @@ const main = (debug: boolean = false): void => {
 
     init(this: Audio) {
       if (!this.context) {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioContextClass =
+          window.AudioContext || (window as any).webkitAudioContext;
         this.context = new AudioContextClass();
       }
       if (this.context && this.context.state === 'suspended') {
-        this.context.resume().catch((err) => {
+        void this.context.resume().catch((err) => {
           console.warn('Failed to resume audio context:', err);
         });
       }
     },
 
     playNote(this: Audio, pixelY: number, noteDuration: number | null = null) {
-      if (!this.context || this.isMuted) return;
+      if (!this.context || this.isMuted) {
+        return;
+      }
 
-      const duration = noteDuration !== null ? noteDuration : getNoteDuration(player.noteValue);
+      const duration =
+        noteDuration !== null
+          ? noteDuration
+          : getNoteDuration(player.noteValue);
       const gridY = pixelY / CONFIG.GRID_SIZE;
       const roundedGridY = Math.round(gridY * 2) / 2;
       const noteKey = roundedGridY.toFixed(1);
@@ -520,7 +558,10 @@ const main = (debug: boolean = false): void => {
 
       gain1.gain.setValueAtTime(0, now);
       gain1.gain.linearRampToValueAtTime(0.3, now + attackTime); // Reduced from 0.35
-      gain1.gain.linearRampToValueAtTime(sustainLevel, now + attackTime + decayTime);
+      gain1.gain.linearRampToValueAtTime(
+        sustainLevel,
+        now + attackTime + decayTime
+      );
 
       const noteEndTime = now + duration;
 
@@ -536,11 +577,13 @@ const main = (debug: boolean = false): void => {
     },
 
     playErrorSound(this: Audio) {
-      if (!this.context || this.isMuted) return;
+      if (!this.context || this.isMuted) {
+        return;
+      }
 
       try {
         if (this.context.state === 'suspended') {
-          this.context.resume();
+          void this.context.resume();
         }
 
         const oscillator = this.context.createOscillator();
@@ -598,7 +641,9 @@ const main = (debug: boolean = false): void => {
     },
 
     getAlpha(this: NoteDisplay): number {
-      if (!this.noteName) return 0;
+      if (!this.noteName) {
+        return 0;
+      }
       return Math.max(0, 1 - this.displayTime / this.displayDuration);
     },
   };
@@ -624,7 +669,9 @@ const main = (debug: boolean = false): void => {
       }
     },
     getAlpha(this: HitZoneFlash): number {
-      if (!this.isFlashing) return 0;
+      if (!this.isFlashing) {
+        return 0;
+      }
       return Math.max(0, 1 - this.progress);
     },
   };
@@ -722,12 +769,16 @@ const main = (debug: boolean = false): void => {
       }
     },
     getScale(this: PlayerAnimation): number {
-      if (!this.isAnimating) return 1;
+      if (!this.isAnimating) {
+        return 1;
+      }
       const t = this.progress;
       return 1 + 0.3 * Math.sin(t * Math.PI);
     },
     getShake(this: PlayerAnimation): { x: number; y: number } {
-      if (!this.isAnimating) return { x: 0, y: 0 };
+      if (!this.isAnimating) {
+        return { x: 0, y: 0 };
+      }
       const t = this.progress;
       const intensity = 5 * (1 - t);
       return {
@@ -758,7 +809,7 @@ const main = (debug: boolean = false): void => {
     }
 
     if (player.image === null && player.imagePath) {
-      loadPlayerImage();
+      void loadPlayerImage();
     }
 
     obstacleSpawner.timeSinceLastSpawn += delta;
@@ -791,7 +842,7 @@ const main = (debug: boolean = false): void => {
     const obstacleSpeed = 150;
     const overlayWidth = noteDuration * obstacleSpeed;
     const overlayStartX = trebleClef.x + trebleClef.width;
-    const overlayEndX = overlayStartX + overlayWidth;
+    const _overlayEndX = overlayStartX + overlayWidth;
 
     obstacles.forEach((obs) => {
       if (lives.checkMiss(obs, player.pixelX, overlayStartX)) {
@@ -817,8 +868,8 @@ const main = (debug: boolean = false): void => {
 
       if (movement.moveProgress >= 1) {
         movement.moveProgress = 1;
-        player.pixelX = movement.nextPixelX!;
-        player.pixelY = movement.nextPixelY!;
+        player.pixelX = movement.nextPixelX ?? 0;
+        player.pixelY = movement.nextPixelY ?? 0;
         movement.isMoving = false;
         movement.nextPixelX = null;
         movement.nextPixelY = null;
@@ -887,10 +938,20 @@ const main = (debug: boolean = false): void => {
     const muteX = 10;
     const muteY = UI_LAYOUT.muteButtonY;
     ctx.fillStyle = uiState.isMuted ? '#FF6B6B' : '#4CAF50';
-    ctx.fillRect(muteX, muteY, UI_LAYOUT.muteButtonWidth, UI_LAYOUT.muteButtonHeight);
+    ctx.fillRect(
+      muteX,
+      muteY,
+      UI_LAYOUT.muteButtonWidth,
+      UI_LAYOUT.muteButtonHeight
+    );
     ctx.strokeStyle = '#333333';
     ctx.lineWidth = 2;
-    ctx.strokeRect(muteX, muteY, UI_LAYOUT.muteButtonWidth, UI_LAYOUT.muteButtonHeight);
+    ctx.strokeRect(
+      muteX,
+      muteY,
+      UI_LAYOUT.muteButtonWidth,
+      UI_LAYOUT.muteButtonHeight
+    );
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '20px Arial';
@@ -949,9 +1010,10 @@ const main = (debug: boolean = false): void => {
     // Draw hit zone flash effect
     if (hitZoneFlash.isFlashing) {
       const flashAlpha = hitZoneFlash.getAlpha();
-      ctx.fillStyle = hitZoneFlash.color === 'green'
-        ? `rgba(76, 175, 80, ${flashAlpha * 0.6})`
-        : `rgba(255, 107, 107, ${flashAlpha * 0.6})`;
+      ctx.fillStyle =
+        hitZoneFlash.color === 'green'
+          ? `rgba(76, 175, 80, ${flashAlpha * 0.6})`
+          : `rgba(255, 107, 107, ${flashAlpha * 0.6})`;
       ctx.fillRect(overlayStartX, startY, overlayWidth, staffHeight);
     }
 
@@ -964,7 +1026,11 @@ const main = (debug: boolean = false): void => {
         ctx.lineTo(x, canvas.height);
         ctx.stroke();
       }
-      for (let y = CONFIG.GRID_SIZE / 2; y <= canvas.height; y += CONFIG.GRID_SIZE) {
+      for (
+        let y = CONFIG.GRID_SIZE / 2;
+        y <= canvas.height;
+        y += CONFIG.GRID_SIZE
+      ) {
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(canvas.width, y);
@@ -1099,7 +1165,11 @@ const main = (debug: boolean = false): void => {
       ctx.fillText('GAME OVER', gameWidth / 2, canvas.height / 2 - 60);
       ctx.fillStyle = '#FFFFFF';
       ctx.font = 'bold 32px Arial';
-      ctx.fillText('Press R to try again', gameWidth / 2, canvas.height / 2 + 40);
+      ctx.fillText(
+        'Press R to try again',
+        gameWidth / 2,
+        canvas.height / 2 + 40
+      );
     }
 
     if (gameState.hasStarted && !gameState.isGameOver) {
@@ -1113,8 +1183,16 @@ const main = (debug: boolean = false): void => {
 
       ctx.fillText('How to Play:', instructionX, instructionY);
       ctx.font = '12px Arial';
-      ctx.fillText('• Press C, D, E, F, G, A, B to match the notes', instructionX, instructionY + 20);
-      ctx.fillText('• Select note duration from the sidebar', instructionX, instructionY + 35);
+      ctx.fillText(
+        '• Press C, D, E, F, G, A, B to match the notes',
+        instructionX,
+        instructionY + 20
+      );
+      ctx.fillText(
+        '• Select note duration from the sidebar',
+        instructionX,
+        instructionY + 35
+      );
       ctx.fillText("• Don't miss the notes!", instructionX, instructionY + 50);
     }
 
@@ -1125,7 +1203,9 @@ const main = (debug: boolean = false): void => {
       const gridY = (player.pixelY / CONFIG.GRID_SIZE).toFixed(1);
       ctx.fillText(`Player Pos: (${gridX}, ${gridY})`, 10, 20);
       ctx.fillText(
-        `Pixel: (${Math.round(player.getPixelX())}, ${Math.round(player.getPixelY())})`,
+        `Pixel: (${Math.round(player.getPixelX())}, ${Math.round(
+          player.getPixelY()
+        )})`,
         10,
         32
       );
@@ -1170,7 +1250,8 @@ const main = (debug: boolean = false): void => {
 
     obstacles.forEach((obs) => {
       const obsCenter = obs.pixelX + CONFIG.GRID_SIZE / 2;
-      const isWithinOverlay = obsCenter >= overlayStartX && obsCenter <= overlayEndX;
+      const isWithinOverlay =
+        obsCenter >= overlayStartX && obsCenter <= overlayEndX;
 
       if (isWithinOverlay && !obs.hasCollided && !obs.hasBeenAvoided) {
         hasObstacleInOverlay = true;
@@ -1205,7 +1286,7 @@ const main = (debug: boolean = false): void => {
   /**
    * Cleanup function for event listeners
    */
-  let cleanupEventListeners: (() => void) | null = null;
+  let _cleanupEventListeners: (() => void) | null = null;
 
   /**
    * Setup event listeners for input handling
@@ -1230,7 +1311,7 @@ const main = (debug: boolean = false): void => {
         ) {
           gameState.hasStarted = true;
           if (audio.context && audio.context.state === 'suspended') {
-            audio.context.resume();
+            void audio.context.resume();
           }
         }
         return;
@@ -1264,7 +1345,7 @@ const main = (debug: boolean = false): void => {
     };
 
     const handleKeyDown = (e: KeyboardEvent): void => {
-      if ((e.key.toLowerCase() === 'r') && gameState.isGameOver) {
+      if (e.key.toLowerCase() === 'r' && gameState.isGameOver) {
         restartGame();
         return;
       }
@@ -1274,14 +1355,16 @@ const main = (debug: boolean = false): void => {
       }
 
       if (audio.context && audio.context.state === 'suspended') {
-        audio.context.resume();
+        void audio.context.resume();
       }
 
       const noteGridYValues = NOTE_KEY_MAP[e.key.toLowerCase()];
       if (noteGridYValues !== undefined) {
         gameState.isNoteKeyPressed = true;
 
-        const gridYArray = Array.isArray(noteGridYValues) ? noteGridYValues : [noteGridYValues];
+        const gridYArray = Array.isArray(noteGridYValues)
+          ? noteGridYValues
+          : [noteGridYValues];
         let targetGridY = gridYArray[0];
 
         const obstaclesAtNote = obstacles.filter((obs) => {
@@ -1323,7 +1406,7 @@ const main = (debug: boolean = false): void => {
     window.addEventListener('keyup', handleKeyUp);
 
     // Store cleanup function
-    cleanupEventListeners = () => {
+    _cleanupEventListeners = () => {
       canvas.removeEventListener('click', handleCanvasClick);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
@@ -1382,27 +1465,27 @@ const main = (debug: boolean = false): void => {
   const loadMonsterImages = async (): Promise<void[]> => {
     const monsterImages = new Set<string>();
     obstacles.forEach((obs) => {
-      if (obs.imagePath) monsterImages.add(obs.imagePath);
+      if (obs.imagePath) {
+        monsterImages.add(obs.imagePath);
+      }
     });
 
     obstacleSpawner.monsterImages.forEach((path) => {
       monsterImages.add(path);
     });
 
-    const imagePromises = Array.from(monsterImages).map(
-      async (imagePath) => {
-        try {
-          const img = await loadImage(imagePath);
-          obstacles.forEach((obs) => {
-            if (obs.imagePath === imagePath) {
-              obs.image = img;
-            }
-          });
-        } catch (error) {
-          // Error already logged in loadImage
-        }
+    const imagePromises = Array.from(monsterImages).map(async (imagePath) => {
+      try {
+        const img = await loadImage(imagePath);
+        obstacles.forEach((obs) => {
+          if (obs.imagePath === imagePath) {
+            obs.image = img;
+          }
+        });
+      } catch {
+        // Error already logged in loadImage
       }
-    );
+    });
 
     return Promise.all(imagePromises);
   };
@@ -1411,11 +1494,13 @@ const main = (debug: boolean = false): void => {
    * Load player image
    */
   const loadPlayerImage = async (): Promise<void> => {
-    if (!player.imagePath) return;
+    if (!player.imagePath) {
+      return;
+    }
 
     try {
       player.image = await loadImage(player.imagePath);
-    } catch (error) {
+    } catch {
       // Error already logged in loadImage
     }
   };
@@ -1427,7 +1512,7 @@ const main = (debug: boolean = false): void => {
     const promises = NOTE_VALUES.map(async (note) => {
       try {
         uiState.noteImages[note] = await loadImage(getPlayerNoteIcon(note));
-      } catch (error) {
+      } catch {
         // Error already logged in loadImage
       }
     });
@@ -1438,11 +1523,13 @@ const main = (debug: boolean = false): void => {
    * Load treble clef image
    */
   const loadTrebleClefImage = async (): Promise<void> => {
-    if (!trebleClef.imagePath) return;
+    if (!trebleClef.imagePath) {
+      return;
+    }
 
     try {
       trebleClef.image = await loadImage(trebleClef.imagePath);
-    } catch (error) {
+    } catch {
       // Error already logged in loadImage
     }
   };
@@ -1486,7 +1573,7 @@ const main = (debug: boolean = false): void => {
       obstacleSpawner.monsterImages.map(async (imagePath) => {
         try {
           imageCache[imagePath] = await loadImage(imagePath);
-        } catch (error) {
+        } catch {
           // Error already logged in loadImage
         }
       })
@@ -1499,7 +1586,7 @@ const main = (debug: boolean = false): void => {
     return true;
   };
 
-  init().then((isReady) => {
+  void init().then((isReady) => {
     if (isReady) {
       requestAnimationFrame(loop);
     } else {
