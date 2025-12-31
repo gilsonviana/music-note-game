@@ -1299,23 +1299,27 @@ const main = (debug: boolean = false): void => {
       ctx.restore();
     }
 
-    ctx.fillStyle = lives.current === 0 ? '#FF0000' : '#000000';
-    ctx.font = 'bold 24px Arial';
+    // Score: Largest, bold, high contrast
+    ctx.fillStyle = lives.current === 0 ? '#c94444' : '#3a3836';
+    ctx.font = 'bold 28px Arial';
     ctx.textAlign = 'right';
-    ctx.fillText(`Score: ${score.current}`, gameWidth - 20, 60);
+    ctx.fillText(`Score: ${score.current}`, gameWidth - 24, 50);
 
+    // Level: Smaller, lighter weight, secondary color
     if (gameState.hasStarted && !gameState.isGameOver) {
-      ctx.fillStyle = '#4CAF50';
-      ctx.font = 'bold 18px Arial';
-      ctx.fillText(`Level: ${gameState.difficulty}`, gameWidth - 20, 90);
+      ctx.fillStyle = '#6a6864';
+      ctx.font = '16px Arial';
+      ctx.fillText(`Level: ${gameState.difficulty}`, gameWidth - 24, 76);
     }
     ctx.textAlign = 'left';
 
     if (!gameState.hasStarted) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
       ctx.fillRect(0, 0, gameWidth, canvas.height);
-      ctx.fillStyle = '#00CC00';
-      ctx.font = 'bold 72px Arial';
+
+      // Title: Large, clear hierarchy
+      ctx.fillStyle = '#e8e6e3';
+      ctx.font = 'bold 64px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('Music Note Game', gameWidth / 2, canvas.height / 2 - 80);
@@ -1325,27 +1329,34 @@ const main = (debug: boolean = false): void => {
       const buttonX = gameWidth / 2 - buttonWidth / 2;
       const buttonY = canvas.height / 2 + 20;
 
-      ctx.fillStyle = '#00CC00';
-      ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
+      ctx.fillStyle = '#82b48c';
+      ctx.beginPath();
+      ctx.roundRect(buttonX, buttonY, buttonWidth, buttonHeight, 8);
+      ctx.fill();
 
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 32px Arial';
-      ctx.fillText('START', gameWidth / 2, buttonY + buttonHeight / 2);
+      ctx.strokeStyle = '#e8e6e3';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#f5f4f2';
+      ctx.font = 'bold 28px Arial';
+      ctx.fillText('START', gameWidth / 2, buttonY + buttonHeight / 2 + 2);
     }
 
     if (gameState.isGameOver) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
       ctx.fillRect(0, 0, gameWidth, canvas.height);
-      ctx.fillStyle = '#FF0000';
-      ctx.font = 'bold 72px Arial';
+
+      // Game Over: Large, attention-grabbing
+      ctx.fillStyle = '#d88080';
+      ctx.font = 'bold 64px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('GAME OVER', gameWidth / 2, canvas.height / 2 - 60);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 32px Arial';
+
+      // Instructions: Smaller, lighter
+      ctx.fillStyle = '#e8e6e3';
+      ctx.font = '22px Arial';
       ctx.fillText(
         'Press R to try again',
         gameWidth / 2,
@@ -1354,27 +1365,35 @@ const main = (debug: boolean = false): void => {
     }
 
     if (gameState.hasStarted && !gameState.isGameOver) {
-      ctx.fillStyle = '#333333';
-      ctx.font = '14px Arial';
+      // Instructions: Smallest, neutral tone, clear spacing
+      const instructionY = canvas.height - 110;
+      const instructionX = 16;
+
+      // Title
+      ctx.fillStyle = '#4a4844';
+      ctx.font = 'bold 13px Arial';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-
-      const instructionY = canvas.height - 120;
-      const instructionX = UI_LAYOUT.sidebarWidth;
-
       ctx.fillText('How to Play:', instructionX, instructionY);
+
+      // Instructions list with consistent spacing
+      ctx.fillStyle = '#6a6864';
       ctx.font = '12px Arial';
       ctx.fillText(
-        '• Press C, D, E, F, G, A, B to match the notes',
+        '• Press C, D, E, F, G, A, B to match notes',
         instructionX,
-        instructionY + 20
+        instructionY + 22
       );
       ctx.fillText(
-        '• Select note duration from the sidebar',
+        '• Select note duration from sidebar',
         instructionX,
-        instructionY + 35
+        instructionY + 40
       );
-      ctx.fillText("• Don't miss the notes!", instructionX, instructionY + 50);
+      ctx.fillText(
+        '• Don\'t miss the notes!',
+        instructionX,
+        instructionY + 58
+      );
     }
 
     if (debug) {
