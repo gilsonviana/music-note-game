@@ -216,7 +216,7 @@ const main = (debug = false) => {
   const UI_LAYOUT = {
     sidebarWidth: 120,
     noteIconSize: 32,
-    noteSpacing: 50,
+    noteSpacing: 65,
     startY: 80,
     muteButtonY: 420,
     muteButtonWidth: 100,
@@ -661,7 +661,7 @@ const main = (debug = false) => {
       // Highlight selected note
       if (note === uiState.selectedNote) {
         ctx.fillStyle = "#4CAF50";
-        ctx.fillRect(10, y - UI_LAYOUT.noteIconSize / 2 - 5, UI_LAYOUT.sidebarWidth - 20, UI_LAYOUT.noteIconSize + 10);
+        ctx.fillRect(10, y - UI_LAYOUT.noteIconSize / 2, UI_LAYOUT.sidebarWidth - 20, UI_LAYOUT.noteIconSize + 16);
       }
 
       // Draw note image
