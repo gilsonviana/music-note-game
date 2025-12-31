@@ -34,6 +34,11 @@ const obstacleGenerator = (
         // Fade out as progress goes from 0 to 1
         return Math.max(0, 1 - this.progress);
       },
+      getScale() {
+        if (!this.isAnimating) return 1;
+        // Scale down from 1 to 0 as progress goes from 0 to 1
+        return Math.max(0, 1 - this.progress);
+      },
     },
   };
 };
@@ -658,11 +663,20 @@ const main = (debug = false) => {
     // Draw obstacles
     obstacles.forEach((obs) => {
       const alpha = obs.fadeAnimation.getAlpha();
+      const scale = obs.fadeAnimation.getScale();
 
       if (obs.image && obs.image.complete) {
-        // Draw the monster image with fade effect
+        // Draw the monster image with fade and scale effects
         ctx.save();
         ctx.globalAlpha = alpha;
+
+        // Apply scaling transformation
+        const centerX = obs.pixelX + CONFIG.GRID_SIZE / 2;
+        const centerY = obs.pixelY + CONFIG.GRID_SIZE / 2;
+        ctx.translate(centerX, centerY);
+        ctx.scale(scale, scale);
+        ctx.translate(-centerX, -centerY);
+
         ctx.drawImage(
           obs.image,
           obs.pixelX,
@@ -675,6 +689,14 @@ const main = (debug = false) => {
         // Fallback to colored square if image not loaded
         ctx.save();
         ctx.globalAlpha = alpha;
+
+        // Apply scaling transformation
+        const centerX = obs.pixelX + CONFIG.GRID_SIZE / 2;
+        const centerY = obs.pixelY + CONFIG.GRID_SIZE / 2;
+        ctx.translate(centerX, centerY);
+        ctx.scale(scale, scale);
+        ctx.translate(-centerX, -centerY);
+
         ctx.fillStyle = "#FF6B6B";
         ctx.fillRect(
           obs.pixelX,
