@@ -49,6 +49,7 @@ interface Config {
   MISS_POINTS_LOST: number;
   ENABLE_X_AXIS_MOVEMENT: boolean;
   BPM: number;
+  STAFF_POSITIONS: number;
 }
 
 interface NoteKeyMap {
@@ -159,6 +160,15 @@ interface HitZoneFlash {
   update(delta: number): void;
   getAlpha(): number;
 }
+
+// Constants
+const NOTE_VALUES: Array<'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'> = [
+  'whole',
+  'half',
+  'quarter',
+  'eighth',
+  'sixteenth',
+];
 
 const obstacleGenerator = (
   pixelX: number = 0,
@@ -277,6 +287,7 @@ const main = (debug: boolean = false): void => {
     MISS_POINTS_LOST: -50,
     ENABLE_X_AXIS_MOVEMENT: false,
     BPM: 90,
+    STAFF_POSITIONS: 9,
   };
 
   // Movement state
@@ -755,7 +766,7 @@ const main = (debug: boolean = false): void => {
     if (obstacleSpawner.timeSinceLastSpawn >= currentSpawnInterval) {
       obstacleSpawner.timeSinceLastSpawn = 0;
       const imagePath = obstacleSpawner.getNextImage();
-      const randomIndex = Math.floor(Math.random() * 9);
+      const randomIndex = Math.floor(Math.random() * CONFIG.STAFF_POSITIONS);
       const randomGridY = 5 + randomIndex * 0.5;
       const gameWidth = canvas.width - UI_LAYOUT.sidebarWidth;
       const currentSpeed = getObstacleSpeed(gameState.difficulty);
@@ -839,8 +850,7 @@ const main = (debug: boolean = false): void => {
     ctx.textAlign = 'center';
     ctx.fillText('Player Note', UI_LAYOUT.sidebarWidth / 2, 30);
 
-    const notes: Array<'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'> = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
-    notes.forEach((note, index) => {
+    NOTE_VALUES.forEach((note, index) => {
       const y = UI_LAYOUT.startY + index * UI_LAYOUT.noteSpacing;
       const centerX = UI_LAYOUT.sidebarWidth / 2;
 
@@ -1193,9 +1203,14 @@ const main = (debug: boolean = false): void => {
   };
 
   /**
+   * Cleanup function for event listeners
+   */
+  let cleanupEventListeners: (() => void) | null = null;
+
+  /**
    * Setup event listeners for input handling
    */
-  const setupInputHandlers = (): { handleKeyDown: (e: KeyboardEvent) => void; handleKeyUp: (e: KeyboardEvent) => void } => {
+  const setupInputHandlers = (): void => {
     const handleCanvasClick = (e: MouseEvent): void => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -1222,8 +1237,7 @@ const main = (debug: boolean = false): void => {
       }
 
       if (x < UI_LAYOUT.sidebarWidth) {
-        const notes: Array<'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'> = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
-        notes.forEach((note, index) => {
+        NOTE_VALUES.forEach((note, index) => {
           const noteY = UI_LAYOUT.startY + index * UI_LAYOUT.noteSpacing;
           const clickAreaTop = noteY - UI_LAYOUT.noteIconSize / 2 - 5;
           const clickAreaBottom = noteY + UI_LAYOUT.noteIconSize / 2 + 15;
@@ -1308,7 +1322,28 @@ const main = (debug: boolean = false): void => {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
-    return { handleKeyDown, handleKeyUp };
+    // Store cleanup function
+    cleanupEventListeners = () => {
+      canvas.removeEventListener('click', handleCanvasClick);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      console.log('Event listeners cleaned up');
+    };
+  };
+
+  /**
+   * Generic image loader helper
+   */
+  const loadImage = (src: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = src;
+      img.onload = () => resolve(img);
+      img.onerror = () => {
+        console.warn(`Failed to load image: ${src}`);
+        reject(new Error(`Failed to load image: ${src}`));
+      };
+    });
   };
 
   /**
@@ -1355,23 +1390,18 @@ const main = (debug: boolean = false): void => {
     });
 
     const imagePromises = Array.from(monsterImages).map(
-      (imagePath) =>
-        new Promise<void>((resolve) => {
-          const img = new Image();
-          img.src = imagePath;
-          img.onload = () => {
-            obstacles.forEach((obs) => {
-              if (obs.imagePath === imagePath) {
-                obs.image = img;
-              }
-            });
-            resolve();
-          };
-          img.onerror = () => {
-            console.warn(`Failed to load image: ${imagePath}`);
-            resolve();
-          };
-        })
+      async (imagePath) => {
+        try {
+          const img = await loadImage(imagePath);
+          obstacles.forEach((obs) => {
+            if (obs.imagePath === imagePath) {
+              obs.image = img;
+            }
+          });
+        } catch (error) {
+          // Error already logged in loadImage
+        }
+      }
     );
 
     return Promise.all(imagePromises);
@@ -1381,45 +1411,26 @@ const main = (debug: boolean = false): void => {
    * Load player image
    */
   const loadPlayerImage = async (): Promise<void> => {
-    return new Promise<void>((resolve) => {
-      if (!player.imagePath) {
-        resolve();
-        return;
-      }
+    if (!player.imagePath) return;
 
-      const img = new Image();
-      img.src = player.imagePath;
-      img.onload = () => {
-        player.image = img;
-        resolve();
-      };
-      img.onerror = () => {
-        console.warn(`Failed to load player image: ${player.imagePath}`);
-        resolve();
-      };
-    });
+    try {
+      player.image = await loadImage(player.imagePath);
+    } catch (error) {
+      // Error already logged in loadImage
+    }
   };
 
   /**
    * Load UI note images
    */
   const loadUIImages = async (): Promise<void[]> => {
-    const notes: Array<'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'> = ['whole', 'half', 'quarter', 'eighth', 'sixteenth'];
-    const promises = notes.map(
-      (note) =>
-        new Promise<void>((resolve) => {
-          const img = new Image();
-          img.src = getPlayerNoteIcon(note);
-          img.onload = () => {
-            uiState.noteImages[note] = img;
-            resolve();
-          };
-          img.onerror = () => {
-            console.warn(`Failed to load UI image for ${note}`);
-            resolve();
-          };
-        })
-    );
+    const promises = NOTE_VALUES.map(async (note) => {
+      try {
+        uiState.noteImages[note] = await loadImage(getPlayerNoteIcon(note));
+      } catch (error) {
+        // Error already logged in loadImage
+      }
+    });
     return Promise.all(promises);
   };
 
@@ -1427,23 +1438,13 @@ const main = (debug: boolean = false): void => {
    * Load treble clef image
    */
   const loadTrebleClefImage = async (): Promise<void> => {
-    return new Promise<void>((resolve) => {
-      if (!trebleClef.imagePath) {
-        resolve();
-        return;
-      }
+    if (!trebleClef.imagePath) return;
 
-      const img = new Image();
-      img.src = trebleClef.imagePath;
-      img.onload = () => {
-        trebleClef.image = img;
-        resolve();
-      };
-      img.onerror = () => {
-        console.warn(`Failed to load treble clef image: ${trebleClef.imagePath}`);
-        resolve();
-      };
-    });
+    try {
+      trebleClef.image = await loadImage(trebleClef.imagePath);
+    } catch (error) {
+      // Error already logged in loadImage
+    }
   };
 
   /**
@@ -1482,21 +1483,13 @@ const main = (debug: boolean = false): void => {
     await loadUIImages();
 
     await Promise.all(
-      obstacleSpawner.monsterImages.map(
-        (imagePath) =>
-          new Promise<void>((resolve) => {
-            const img = new Image();
-            img.src = imagePath;
-            img.onload = () => {
-              imageCache[imagePath] = img;
-              resolve();
-            };
-            img.onerror = () => {
-              console.warn(`Failed to preload image: ${imagePath}`);
-              resolve();
-            };
-          })
-      )
+      obstacleSpawner.monsterImages.map(async (imagePath) => {
+        try {
+          imageCache[imagePath] = await loadImage(imagePath);
+        } catch (error) {
+          // Error already logged in loadImage
+        }
+      })
     );
 
     setupInputHandlers();
