@@ -176,6 +176,12 @@ const main = (debug = false) => {
     collision() {
       this.addPoints(CONFIG.COLLISION_POINTS_GAINED);
     },
+    /**
+     * Reset score to initial state
+     */
+    reset() {
+      this.current = 0;
+    },
   };
 
   /**
@@ -806,8 +812,49 @@ const main = (debug = false) => {
       });
     }
 
+    // Setup restart button listener
+    const restartBtn = document.getElementById('restart-btn');
+    if (restartBtn) {
+      restartBtn.addEventListener('click', () => {
+        restartGame();
+        console.log('Game restarted');
+      });
+    }
+
     // Store handlers for cleanup
     return { handleKeyDown, handleKeyUp };
+  };
+
+  /**
+   * Restart the game
+   */
+  const restartGame = () => {
+    // Reset score
+    score.reset();
+
+    // Clear obstacles
+    obstacles.length = 0;
+
+    // Reset player position
+    player.pixelX = CONFIG.PLAYER_INITIAL_GRID_X * CONFIG.GRID_SIZE;
+    player.pixelY = CONFIG.PLAYER_INITIAL_GRID_Y * CONFIG.GRID_SIZE;
+
+    // Reset movement state
+    movement.isMoving = false;
+    movement.moveProgress = 0;
+    movement.nextPixelX = null;
+    movement.nextPixelY = null;
+
+    // Reset animations
+    playerAnimation.isAnimating = false;
+    playerAnimation.progress = 0;
+    noteDisplay.noteName = null;
+    noteDisplay.displayTime = 0;
+
+    // Reset obstacle spawner
+    obstacleSpawner.timeSinceLastSpawn = 0;
+
+    console.log('Game state reset');
   };
 
   /**
