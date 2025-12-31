@@ -876,7 +876,6 @@ const main = (debug = false) => {
     ctx.fillStyle = lives.current === 0 ? "#FF0000" : "#000000";
     ctx.font = "bold 24px Arial";
     ctx.textAlign = "right";
-    ctx.fillText(`Lives: ${lives.current}/${lives.max}`, gameWidth - 20, 30);
     ctx.fillText(`Score: ${score.current}`, gameWidth - 20, 60);
     ctx.textAlign = "left";
 
@@ -919,6 +918,23 @@ const main = (debug = false) => {
       ctx.fillStyle = "#FFFFFF";
       ctx.font = "bold 32px Arial";
       ctx.fillText("Press R to try again", gameWidth / 2, canvas.height / 2 + 40);
+    }
+
+    // Draw instructions at the bottom when game has started
+    if (gameState.hasStarted && !gameState.isGameOver) {
+      ctx.fillStyle = "#333333";
+      ctx.font = "14px Arial";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+
+      const instructionY = canvas.height - 120;
+      const instructionX = UI_LAYOUT.sidebarWidth;
+
+      ctx.fillText("How to Play:", instructionX, instructionY);
+      ctx.font = "12px Arial";
+      ctx.fillText("• Press C, D, E, F, G, A, B to match the notes", instructionX, instructionY + 20);
+      ctx.fillText("• Select note duration from the sidebar", instructionX, instructionY + 35);
+      ctx.fillText("• Don't miss the notes!", instructionX, instructionY + 50);
     }
 
     // Draw position info for debugging
