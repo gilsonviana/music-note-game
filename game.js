@@ -139,8 +139,8 @@ const main = (debug = false) => {
 
   // Lives system
   const lives = {
-    current: 3,
-    max: 3,
+    current: 5,
+    max: 5,
     /**
      * Lose a life
      */
@@ -153,10 +153,11 @@ const main = (debug = false) => {
     /**
      * Check if player has missed an obstacle
      */
-    checkMiss(obstacle, playerX) {
-      // If obstacle has passed the player's position and hasn't been hit
+    checkMiss(obstacle, playerX, overlayStartX) {
+      // If obstacle has completely moved past the overlay (on the left side) and hasn't been hit
+      // The whole obstacle is considered past when its right edge goes beyond overlayStartX
       if (
-        obstacle.pixelX < playerX &&
+        obstacle.pixelX + CONFIG.GRID_SIZE < overlayStartX &&
         !obstacle.hasBeenAvoided &&
         !obstacle.hasCollided
       ) {
@@ -554,8 +555,18 @@ const main = (debug = false) => {
       obs.pixelX -= obs.speed * delta; // Move left
       // Update fade animation
       obs.fadeAnimation.update(delta);
-      // Check if player missed the obstacle
-      if (lives.checkMiss(obs, player.pixelX)) {
+    });
+
+    // Calculate overlay boundaries for miss detection
+    const noteDuration = getNoteDuration(player.noteValue);
+    const obstacleSpeed = 150; // pixels per second
+    const overlayWidth = noteDuration * obstacleSpeed;
+    const overlayStartX = trebleClef.x + trebleClef.width;
+    const overlayEndX = overlayStartX + overlayWidth;
+
+    // Check for misses
+    obstacles.forEach((obs) => {
+      if (lives.checkMiss(obs, player.pixelX, overlayStartX)) {
         // Play error sound on miss
         audio.playErrorSound();
         // Check if game is over after losing a life
@@ -826,8 +837,9 @@ const main = (debug = false) => {
   /**
    * Handle note key press - check for collision with obstacles at that note's Y position
    */
-  const handleNoteKeyPress = (gridY) => {
-    const pixelY = gridY * CONFIG.GRID_SIZE;
+  const handleNoteKeyPress = (gridYArray) => {
+    // Ensure gridYArray is always an array
+    const gridYs = Array.isArray(gridYArray) ? gridYArray : [gridYArray];
 
     // Calculate overlay boundaries based on note duration
     const noteDuration = getNoteDuration(player.noteValue);
@@ -836,20 +848,28 @@ const main = (debug = false) => {
     const overlayStartX = trebleClef.x + trebleClef.width;
     const overlayEndX = overlayStartX + overlayWidth;
 
-    // Find obstacles at the note's Y position within the overlay section
-    obstacles.forEach((obs) => {
-      // Check if obstacle is at the correct Y position
-      const obsGridY = (obs.pixelY / CONFIG.GRID_SIZE).toFixed(1);
-      const targetGridY = gridY.toFixed(1);
-      const yMatch = obsGridY === targetGridY;
+    let hitCorrectNote = false;
+    let hasObstacleInOverlay = false;
 
+    // Find obstacles within the overlay section
+    obstacles.forEach((obs) => {
       // Check if obstacle is within the overlay section (hitting zone)
       const obsCenter = obs.pixelX + CONFIG.GRID_SIZE / 2;
       const isWithinOverlay = obsCenter >= overlayStartX && obsCenter <= overlayEndX;
 
+      // Track if there's any obstacle in the overlay (for wrong key detection)
+      if (isWithinOverlay && !obs.hasCollided && !obs.hasBeenAvoided) {
+        hasObstacleInOverlay = true;
+      }
+
+      // Check if obstacle matches any of the pressed note's Y positions
+      const obsGridY = parseFloat((obs.pixelY / CONFIG.GRID_SIZE).toFixed(1));
+      const yMatch = gridYs.some(gridY => Math.abs(gridY - obsGridY) < 0.1);
+
       // Collision occurs when Y positions match, obstacle is within overlay, and not already collided
       if (yMatch && isWithinOverlay && !obs.hasCollided) {
         obs.hasCollided = true;
+        hitCorrectNote = true;
 
         // Add points for successful collision
         score.addPoints(CONFIG.COLLISION_POINTS_GAINED);
@@ -867,6 +887,17 @@ const main = (debug = false) => {
         playerAnimation.start();
       }
     });
+
+    // If there's an obstacle in the overlay but we didn't hit it, it's a wrong key press
+    if (hasObstacleInOverlay && !hitCorrectNote) {
+      lives.loseLife();
+      audio.playErrorSound();
+
+      // Check if game is over after losing a life
+      if (lives.isGameOver()) {
+        gameState.isGameOver = true;
+      }
+    }
   };
 
   /**
@@ -905,9 +936,8 @@ const main = (debug = false) => {
 
         gameState.currentNoteGridY = targetGridY;
 
-        // Handle single values or arrays
-        const gridYs = Array.isArray(noteGridYValues) ? noteGridYValues : [noteGridYValues];
-        gridYs.forEach(gridY => handleNoteKeyPress(gridY));
+        // Call handleNoteKeyPress once with all possible Y values for this key
+        handleNoteKeyPress(noteGridYValues);
         e.preventDefault();
         return;
       }
