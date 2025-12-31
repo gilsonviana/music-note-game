@@ -27,6 +27,8 @@ interface UIState {
   selectedNote: 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth';
   noteImages: Record<string, HTMLImageElement>;
   isMuted: boolean;
+  selectionProgress: Record<string, number>;
+  selectionAnimating: Record<string, boolean>;
 }
 
 interface Movement {
@@ -249,6 +251,20 @@ const main = (debug: boolean = false): void => {
     selectedNote: 'half',
     noteImages: {},
     isMuted: false,
+    selectionProgress: {
+      whole: 0,
+      half: 1,
+      quarter: 0,
+      eighth: 0,
+      sixteenth: 0,
+    },
+    selectionAnimating: {
+      whole: false,
+      half: false,
+      quarter: false,
+      eighth: false,
+      sixteenth: false,
+    },
   };
 
   // Get selected player note value from UI
@@ -883,86 +899,138 @@ const main = (debug: boolean = false): void => {
     playerAnimation.update(delta);
     noteDisplay.update(delta);
     hitZoneFlash.update(delta);
+
+    // Update selection animation progress
+    NOTE_VALUES.forEach((note) => {
+      const targetProgress = note === uiState.selectedNote ? 1 : 0;
+      const currentProgress = uiState.selectionProgress[note];
+
+      if (Math.abs(targetProgress - currentProgress) > 0.01) {
+        // Animate over ~200ms with ease-out
+        const animSpeed = 5; // Speed factor for smooth transition
+        const diff = targetProgress - currentProgress;
+        uiState.selectionProgress[note] += diff * animSpeed * delta;
+
+        // Clamp to target
+        if (Math.abs(uiState.selectionProgress[note] - targetProgress) < 0.01) {
+          uiState.selectionProgress[note] = targetProgress;
+        }
+      }
+    });
   };
 
   /**
    * Draw UI sidebar on canvas
    */
   const drawUI = (): void => {
-    ctx.fillStyle = '#f0f0f0';
+    // Muted sidebar background (not pure white)
+    ctx.fillStyle = '#e8e6e3';
     ctx.fillRect(0, 0, UI_LAYOUT.sidebarWidth, canvas.height);
 
-    ctx.strokeStyle = '#cccccc';
-    ctx.lineWidth = 2;
+    // Softer divider line
+    ctx.strokeStyle = '#d0cdc9';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(UI_LAYOUT.sidebarWidth, 0);
     ctx.lineTo(UI_LAYOUT.sidebarWidth, canvas.height);
     ctx.stroke();
 
-    ctx.fillStyle = '#333333';
-    ctx.font = 'bold 14px Arial';
+    // Muted header text
+    ctx.fillStyle = '#5a5854';
+    ctx.font = 'bold 13px Arial';
     ctx.textAlign = 'center';
     ctx.fillText('Player Note', UI_LAYOUT.sidebarWidth / 2, 30);
 
     NOTE_VALUES.forEach((note, index) => {
       const y = UI_LAYOUT.startY + index * UI_LAYOUT.noteSpacing;
       const centerX = UI_LAYOUT.sidebarWidth / 2;
+      const progress = uiState.selectionProgress[note] || 0;
 
-      if (note === uiState.selectedNote) {
-        ctx.fillStyle = '#4CAF50';
-        ctx.fillRect(
-          10,
-          y - UI_LAYOUT.noteIconSize / 2,
-          UI_LAYOUT.sidebarWidth - 20,
-          UI_LAYOUT.noteIconSize + 16
+      // Eased progress (ease-out cubic)
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+
+      // Soft selection indicator with glow and scale
+      if (progress > 0.01) {
+        ctx.save();
+
+        // Subtle glow effect
+        const glowAlpha = easedProgress * 0.15;
+        ctx.shadowColor = `rgba(120, 170, 130, ${glowAlpha})`;
+        ctx.shadowBlur = 12 * easedProgress;
+
+        // Soft rounded background
+        const bgAlpha = easedProgress * 0.2;
+        ctx.fillStyle = `rgba(130, 180, 140, ${bgAlpha})`;
+        ctx.beginPath();
+        ctx.roundRect(
+          12,
+          y - UI_LAYOUT.noteIconSize / 2 - 4,
+          UI_LAYOUT.sidebarWidth - 24,
+          UI_LAYOUT.noteIconSize + 20,
+          8
         );
+        ctx.fill();
+
+        ctx.restore();
       }
 
       const img = uiState.noteImages[note];
       if (img && img.complete) {
+        ctx.save();
+
+        // Subtle scale-up for selected note (1.05x)
+        const scale = 1 + (easedProgress * 0.05);
+        const scaledSize = UI_LAYOUT.noteIconSize * scale;
+
         ctx.drawImage(
           img,
-          centerX - UI_LAYOUT.noteIconSize / 2,
-          y - UI_LAYOUT.noteIconSize / 2,
-          UI_LAYOUT.noteIconSize,
-          UI_LAYOUT.noteIconSize
+          centerX - scaledSize / 2,
+          y - scaledSize / 2,
+          scaledSize,
+          scaledSize
         );
+
+        ctx.restore();
       }
 
-      ctx.fillStyle = note === uiState.selectedNote ? '#ffffff' : '#666666';
+      // Muted text colors (not pure white or black)
+      const textColor = progress > 0.5 ? '#4a4844' : '#7a7874';
+      ctx.fillStyle = textColor;
       ctx.font = '11px Arial';
       ctx.fillText(
         note.charAt(0).toUpperCase() + note.slice(1),
         centerX,
-        y + UI_LAYOUT.noteIconSize / 2 + 12
+        y + UI_LAYOUT.noteIconSize / 2 + 14
       );
     });
 
+    // Softer mute button
     const muteX = 10;
     const muteY = UI_LAYOUT.muteButtonY;
-    ctx.fillStyle = uiState.isMuted ? '#FF6B6B' : '#4CAF50';
-    ctx.fillRect(
+    const muteColor = uiState.isMuted ? '#d88080' : '#82b48c';
+    ctx.fillStyle = muteColor;
+    ctx.beginPath();
+    ctx.roundRect(
       muteX,
       muteY,
       UI_LAYOUT.muteButtonWidth,
-      UI_LAYOUT.muteButtonHeight
+      UI_LAYOUT.muteButtonHeight,
+      6
     );
-    ctx.strokeStyle = '#333333';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(
-      muteX,
-      muteY,
-      UI_LAYOUT.muteButtonWidth,
-      UI_LAYOUT.muteButtonHeight
-    );
+    ctx.fill();
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '20px Arial';
+    // Subtle border
+    ctx.strokeStyle = '#5a5854';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#f5f4f2';
+    ctx.font = '18px Arial';
     ctx.textAlign = 'center';
     ctx.fillText(
       uiState.isMuted ? '🔇' : '🔊',
       muteX + UI_LAYOUT.muteButtonWidth / 2,
-      muteY + UI_LAYOUT.muteButtonHeight / 2 + 7
+      muteY + UI_LAYOUT.muteButtonHeight / 2 + 6
     );
   };
 
@@ -970,7 +1038,11 @@ const main = (debug: boolean = false): void => {
    * Render the game scene
    */
   const render = (): void => {
-    ctx.fillStyle = '#ffffff';
+    // Create top-to-bottom gradient background
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#f7f6f3');
+    gradient.addColorStop(1, '#f2efe9');
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     drawUI();
@@ -979,12 +1051,34 @@ const main = (debug: boolean = false): void => {
     ctx.translate(UI_LAYOUT.sidebarWidth, 0);
 
     const gameWidth = canvas.width - UI_LAYOUT.sidebarWidth;
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2;
     const totalLineHeight = 4 * CONFIG.GRID_SIZE;
     const startY = (canvas.height - totalLineHeight) / 2;
+
+    // Draw subtle shadow/glow behind staff area to give it stage presence
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
+    ctx.shadowBlur = 15;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.fillRect(-10, startY - 15, gameWidth + 20, totalLineHeight + 30);
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // Draw staff lines with varying emphasis
     for (let i = 0; i < 5; i++) {
       const y = startY + i * CONFIG.GRID_SIZE;
+      const isMiddleLine = i === 2;
+
+      // Middle line is thicker and darker for emphasis
+      if (isMiddleLine) {
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2.5;
+      } else {
+        // Outer lines are lighter and thinner
+        ctx.strokeStyle = '#666666';
+        ctx.lineWidth = 1.5;
+      }
+
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(gameWidth, y);
@@ -1007,8 +1101,20 @@ const main = (debug: boolean = false): void => {
     const overlayStartX = trebleClef.x + trebleClef.width;
     const staffHeight = 4 * CONFIG.GRID_SIZE;
 
-    ctx.fillStyle = 'rgba(144, 238, 144, 0.3)';
-    ctx.fillRect(overlayStartX, startY, overlayWidth, staffHeight);
+    // Create breathing pulse effect for timing zone
+    const pulseSpeed = 0.8; // Slow, gentle pulse
+    const pulseAmount = Math.sin(gameState.elapsedTime * pulseSpeed) * 0.05 + 0.3;
+
+    // Draw timing zone with gradient and rounded corners
+    const cornerRadius = 8;
+    const timingGradient = ctx.createLinearGradient(overlayStartX, 0, overlayStartX + overlayWidth, 0);
+    timingGradient.addColorStop(0, `rgba(144, 238, 144, ${pulseAmount + 0.05})`); // Left darker
+    timingGradient.addColorStop(1, `rgba(144, 238, 144, ${pulseAmount - 0.05})`); // Right lighter
+
+    ctx.fillStyle = timingGradient;
+    ctx.beginPath();
+    ctx.roundRect(overlayStartX, startY, overlayWidth, staffHeight, cornerRadius);
+    ctx.fill();
 
     // Draw hit zone flash effect
     if (hitZoneFlash.isFlashing) {
@@ -1077,35 +1183,105 @@ const main = (debug: boolean = false): void => {
 
     obstacles.forEach((obs) => {
       const alpha = obs.fadeAnimation.getAlpha();
-      const scale = obs.fadeAnimation.getScale();
+      let scale = obs.fadeAnimation.getScale();
       const rotation = obs.fadeAnimation.getRotation();
       const shake = obs.fadeAnimation.getShake();
 
+      // Calculate distance to hit zone for anticipation effect
+      const distanceToHitZone = obs.pixelX - overlayStartX;
+      const anticipationRange = 80; // pixels before hit zone
+      let anticipationScale = 1;
+      let glowAmount = 0;
+
+      // Anticipation: tiny scale-up as note approaches hit zone
+      if (distanceToHitZone > 0 && distanceToHitZone < anticipationRange && !obs.fadeAnimation.isAnimating) {
+        const anticipationProgress = 1 - (distanceToHitZone / anticipationRange);
+        anticipationScale = 1 + (anticipationProgress * 0.15); // Subtle 15% scale-up
+      }
+
+      // Glow effect for successful hits (during fade animation after collision)
+      if (obs.hasCollided && obs.fadeAnimation.isAnimating) {
+        glowAmount = obs.fadeAnimation.getAlpha() * 20;
+      }
+
+      // Apply anticipation to scale
+      scale *= anticipationScale;
+
+      // Desaturation for missed notes
+      const isMissed = obs.hasBeenAvoided && !obs.hasCollided;
+
+      // Vertical bob synced to tempo for grounding
+      const beatDuration = 60 / CONFIG.BPM;
+      const bobSpeed = (Math.PI * 2) / beatDuration; // Complete cycle per beat
+      const bobAmount = Math.sin(gameState.elapsedTime * bobSpeed) * 2; // 2px vertical bob
+
+      // Shadow positioning
+      const shadowX = obs.pixelX + CONFIG.GRID_SIZE / 2 + shake.x;
+      const shadowY = obs.pixelY + CONFIG.GRID_SIZE + shake.y; // Below the character
+
+      // Draw shadow ellipse
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.3; // Shadow opacity tied to character alpha
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.beginPath();
+      ctx.ellipse(
+        shadowX,
+        shadowY,
+        CONFIG.GRID_SIZE * 0.4, // Shadow width
+        CONFIG.GRID_SIZE * 0.15, // Shadow height (flatter)
+        0,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+      ctx.restore();
+
       if (obs.image && obs.image.complete) {
         ctx.save();
+
+        // Add glow for successful hits
+        if (glowAmount > 0) {
+          ctx.shadowColor = 'rgba(76, 175, 80, 0.8)';
+          ctx.shadowBlur = glowAmount;
+        }
+
         ctx.globalAlpha = alpha;
 
         const centerX = obs.pixelX + CONFIG.GRID_SIZE / 2 + shake.x;
-        const centerY = obs.pixelY + CONFIG.GRID_SIZE / 2 + shake.y;
+        const centerY = obs.pixelY + CONFIG.GRID_SIZE / 2 + shake.y + bobAmount;
         ctx.translate(centerX, centerY);
         ctx.rotate(rotation);
         ctx.scale(scale, scale);
         ctx.translate(-CONFIG.GRID_SIZE / 2, -CONFIG.GRID_SIZE / 2);
+
+        // Desaturate missed notes
+        if (isMissed) {
+          ctx.filter = 'grayscale(80%) brightness(0.7)';
+        }
 
         ctx.drawImage(obs.image, 0, 0, CONFIG.GRID_SIZE, CONFIG.GRID_SIZE);
         ctx.restore();
       } else {
         ctx.save();
+
+        // Add glow for successful hits
+        if (glowAmount > 0) {
+          ctx.shadowColor = 'rgba(76, 175, 80, 0.8)';
+          ctx.shadowBlur = glowAmount;
+        }
+
         ctx.globalAlpha = alpha;
 
         const centerX = obs.pixelX + CONFIG.GRID_SIZE / 2 + shake.x;
-        const centerY = obs.pixelY + CONFIG.GRID_SIZE / 2 + shake.y;
+        const centerY = obs.pixelY + CONFIG.GRID_SIZE / 2 + shake.y + bobAmount;
         ctx.translate(centerX, centerY);
         ctx.rotate(rotation);
         ctx.scale(scale, scale);
         ctx.translate(-CONFIG.GRID_SIZE / 2, -CONFIG.GRID_SIZE / 2);
 
-        ctx.fillStyle = '#FF6B6B';
+        // Desaturate missed notes
+        const fillColor = isMissed ? '#888888' : '#FF6B6B';
+        ctx.fillStyle = fillColor;
         ctx.fillRect(0, 0, CONFIG.GRID_SIZE, CONFIG.GRID_SIZE);
         ctx.restore();
       }
