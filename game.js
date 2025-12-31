@@ -632,6 +632,17 @@ const main = (debug = false) => {
       );
     }
 
+    // Draw translucent greenish overlay based on note value
+    // The overlay width represents the duration of the selected note
+    const noteDuration = getNoteDuration(player.noteValue);
+    const obstacleSpeed = 150; // pixels per second
+    const overlayWidth = noteDuration * obstacleSpeed;
+    const overlayStartX = trebleClef.x + trebleClef.width;
+    const staffHeight = 4 * CONFIG.GRID_SIZE; // Height from first to last line
+
+    ctx.fillStyle = "rgba(144, 238, 144, 0.3)"; // Light green with 30% opacity
+    ctx.fillRect(overlayStartX, startY, overlayWidth, staffHeight);
+
     // Draw grid (optional, helpful for debugging)
     if (debug) {
       ctx.strokeStyle = "#e0e0e0";
@@ -817,24 +828,27 @@ const main = (debug = false) => {
    */
   const handleNoteKeyPress = (gridY) => {
     const pixelY = gridY * CONFIG.GRID_SIZE;
-    const playerPixelX = player.getPixelX();
-    const tolerance = CONFIG.GRID_SIZE * 0.75; // Tolerance for collision detection
 
-    // Find obstacles at the player's X position and the note's Y position
+    // Calculate overlay boundaries based on note duration
+    const noteDuration = getNoteDuration(player.noteValue);
+    const obstacleSpeed = 150; // pixels per second
+    const overlayWidth = noteDuration * obstacleSpeed;
+    const overlayStartX = trebleClef.x + trebleClef.width;
+    const overlayEndX = overlayStartX + overlayWidth;
+
+    // Find obstacles at the note's Y position within the overlay section
     obstacles.forEach((obs) => {
-      // Check if obstacle is within collision range on X axis
-      const dx = Math.abs(
-        playerPixelX + CONFIG.PLAYER_SIZE / 2 -
-        (obs.pixelX + CONFIG.GRID_SIZE / 2)
-      );
-
       // Check if obstacle is at the correct Y position
       const obsGridY = (obs.pixelY / CONFIG.GRID_SIZE).toFixed(1);
       const targetGridY = gridY.toFixed(1);
       const yMatch = obsGridY === targetGridY;
 
-      // Collision occurs when X overlaps and Y positions match
-      if (dx < tolerance && yMatch && !obs.hasCollided) {
+      // Check if obstacle is within the overlay section (hitting zone)
+      const obsCenter = obs.pixelX + CONFIG.GRID_SIZE / 2;
+      const isWithinOverlay = obsCenter >= overlayStartX && obsCenter <= overlayEndX;
+
+      // Collision occurs when Y positions match, obstacle is within overlay, and not already collided
+      if (yMatch && isWithinOverlay && !obs.hasCollided) {
         obs.hasCollided = true;
 
         // Add points for successful collision
