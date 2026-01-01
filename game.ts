@@ -189,7 +189,7 @@ const obstacleGenerator = (
     fadeAnimation: {
       isAnimating: false,
       progress: 0,
-      duration: 0.5,
+      duration: 0.333, // Half beat at 90 BPM (~333ms)
       start(this: FadeAnimation) {
         this.isAnimating = true;
         this.progress = 0;
@@ -327,6 +327,25 @@ const main = (debug: boolean = false): void => {
     ENABLE_X_AXIS_MOVEMENT: false,
     BPM: 90,
     STAFF_POSITIONS: 9,
+  };
+
+  // Global tempo reference for musical timing
+  const BEAT_DURATION = 60 / CONFIG.BPM; // Duration of one beat in seconds
+
+  // Musical animation durations (in seconds)
+  const ANIM_TIMING = {
+    QUARTER_BEAT: BEAT_DURATION * 0.25, // ~167ms at 90 BPM
+    HALF_BEAT: BEAT_DURATION * 0.5, // ~333ms at 90 BPM
+    ONE_BEAT: BEAT_DURATION, // ~667ms at 90 BPM
+    TWO_BEATS: BEAT_DURATION * 2, // ~1333ms at 90 BPM
+  };
+
+  /**
+   * Easing functions for smooth, musical motion
+   */
+
+  const easeSine = (t: number): number => {
+    return Math.sin((t * Math.PI) / 2);
   };
 
   // Movement state
@@ -510,8 +529,7 @@ const main = (debug: boolean = false): void => {
 
     init(this: Audio) {
       if (!this.context) {
-        const AudioContextClass =
-          window.AudioContext || (window as any).webkitAudioContext;
+        const AudioContextClass = window.AudioContext;
         this.context = new AudioContextClass();
       }
       if (this.context && this.context.state === 'suspended') {
@@ -637,7 +655,7 @@ const main = (debug: boolean = false): void => {
   const noteDisplay: NoteDisplay = {
     noteName: null,
     displayTime: 0,
-    displayDuration: 0.8,
+    displayDuration: ANIM_TIMING.ONE_BEAT, // One beat for note name display
 
     show(this: NoteDisplay, pixelY: number) {
       const gridY = pixelY / CONFIG.GRID_SIZE;
@@ -669,13 +687,14 @@ const main = (debug: boolean = false): void => {
     isFlashing: false,
     color: 'green',
     progress: 0,
-    duration: 0.3,
+    duration: ANIM_TIMING.QUARTER_BEAT, // Quarter beat for flash
     start(this: HitZoneFlash, color: 'green' | 'red'): void {
       this.isFlashing = true;
       this.color = color;
       this.progress = 0;
-      // Increase duration for red flash (missed notes) to make feedback more visible
-      this.duration = color === 'red' ? 0.5 : 0.3;
+      // Increase duration for red flash to half beat for better visibility
+      this.duration =
+        color === 'red' ? ANIM_TIMING.HALF_BEAT : ANIM_TIMING.QUARTER_BEAT;
     },
     update(this: HitZoneFlash, delta: number): void {
       if (this.isFlashing) {
@@ -772,7 +791,7 @@ const main = (debug: boolean = false): void => {
   const playerAnimation: PlayerAnimation = {
     isAnimating: false,
     progress: 0,
-    duration: 0.2,
+    duration: ANIM_TIMING.QUARTER_BEAT, // Quarter beat for hit feedback
     start(this: PlayerAnimation) {
       this.isAnimating = true;
       this.progress = 0;
@@ -791,7 +810,8 @@ const main = (debug: boolean = false): void => {
         return 1;
       }
       const t = this.progress;
-      return 1 + 0.3 * Math.sin(t * Math.PI);
+      // Use sine-based easing for smooth, musical bounce
+      return 1 + 0.3 * easeSine(Math.sin(t * Math.PI));
     },
     getShake(this: PlayerAnimation): { x: number; y: number } {
       if (!this.isAnimating) {
@@ -900,16 +920,17 @@ const main = (debug: boolean = false): void => {
     noteDisplay.update(delta);
     hitZoneFlash.update(delta);
 
-    // Update selection animation progress
+    // Update selection animation progress (quarter beat transition)
     NOTE_VALUES.forEach((note) => {
       const targetProgress = note === uiState.selectedNote ? 1 : 0;
       const currentProgress = uiState.selectionProgress[note];
 
       if (Math.abs(targetProgress - currentProgress) > 0.01) {
-        // Animate over ~200ms with ease-out
-        const animSpeed = 5; // Speed factor for smooth transition
+        // Animate over quarter beat with ease-out
+        const animSpeed = 1 / ANIM_TIMING.QUARTER_BEAT;
         const diff = targetProgress - currentProgress;
-        uiState.selectionProgress[note] += diff * animSpeed * delta;
+        const easedDiff = diff * animSpeed * delta;
+        uiState.selectionProgress[note] += easedDiff;
 
         // Clamp to target
         if (Math.abs(uiState.selectionProgress[note] - targetProgress) < 0.01) {
@@ -979,7 +1000,7 @@ const main = (debug: boolean = false): void => {
         ctx.save();
 
         // Subtle scale-up for selected note (1.05x)
-        const scale = 1 + (easedProgress * 0.05);
+        const scale = 1 + easedProgress * 0.05;
         const scaledSize = UI_LAYOUT.noteIconSize * scale;
 
         ctx.drawImage(
@@ -1101,19 +1122,37 @@ const main = (debug: boolean = false): void => {
     const overlayStartX = trebleClef.x + trebleClef.width;
     const staffHeight = 4 * CONFIG.GRID_SIZE;
 
-    // Create breathing pulse effect for timing zone
-    const pulseSpeed = 0.8; // Slow, gentle pulse
-    const pulseAmount = Math.sin(gameState.elapsedTime * pulseSpeed) * 0.05 + 0.3;
+    // Create breathing pulse effect for timing zone (2 beat loop)
+    const pulseFrequency = (Math.PI * 2) / ANIM_TIMING.TWO_BEATS; // Complete cycle every 2 beats
+    const pulseAmount =
+      Math.sin(gameState.elapsedTime * pulseFrequency) * 0.05 + 0.3;
 
     // Draw timing zone with gradient and rounded corners
     const cornerRadius = 8;
-    const timingGradient = ctx.createLinearGradient(overlayStartX, 0, overlayStartX + overlayWidth, 0);
-    timingGradient.addColorStop(0, `rgba(144, 238, 144, ${pulseAmount + 0.05})`); // Left darker
-    timingGradient.addColorStop(1, `rgba(144, 238, 144, ${pulseAmount - 0.05})`); // Right lighter
+    const timingGradient = ctx.createLinearGradient(
+      overlayStartX,
+      0,
+      overlayStartX + overlayWidth,
+      0
+    );
+    timingGradient.addColorStop(
+      0,
+      `rgba(144, 238, 144, ${pulseAmount + 0.05})`
+    ); // Left darker
+    timingGradient.addColorStop(
+      1,
+      `rgba(144, 238, 144, ${pulseAmount - 0.05})`
+    ); // Right lighter
 
     ctx.fillStyle = timingGradient;
     ctx.beginPath();
-    ctx.roundRect(overlayStartX, startY, overlayWidth, staffHeight, cornerRadius);
+    ctx.roundRect(
+      overlayStartX,
+      startY,
+      overlayWidth,
+      staffHeight,
+      cornerRadius
+    );
     ctx.fill();
 
     // Draw hit zone flash effect
@@ -1194,9 +1233,13 @@ const main = (debug: boolean = false): void => {
       let glowAmount = 0;
 
       // Anticipation: tiny scale-up as note approaches hit zone
-      if (distanceToHitZone > 0 && distanceToHitZone < anticipationRange && !obs.fadeAnimation.isAnimating) {
-        const anticipationProgress = 1 - (distanceToHitZone / anticipationRange);
-        anticipationScale = 1 + (anticipationProgress * 0.15); // Subtle 15% scale-up
+      if (
+        distanceToHitZone > 0 &&
+        distanceToHitZone < anticipationRange &&
+        !obs.fadeAnimation.isAnimating
+      ) {
+        const anticipationProgress = 1 - distanceToHitZone / anticipationRange;
+        anticipationScale = 1 + anticipationProgress * 0.15; // Subtle 15% scale-up
       }
 
       // Glow effect for successful hits (during fade animation after collision)
@@ -1210,10 +1253,11 @@ const main = (debug: boolean = false): void => {
       // Desaturation for missed notes
       const isMissed = obs.hasBeenAvoided && !obs.hasCollided;
 
-      // Vertical bob synced to tempo for grounding
-      const beatDuration = 60 / CONFIG.BPM;
-      const bobSpeed = (Math.PI * 2) / beatDuration; // Complete cycle per beat
-      const bobAmount = Math.sin(gameState.elapsedTime * bobSpeed) * 2; // 2px vertical bob
+      // Vertical bob synced to tempo for grounding (1 beat loop)
+      const bobFrequency = (Math.PI * 2) / ANIM_TIMING.ONE_BEAT; // Complete cycle per beat
+      const bobProgress =
+        (gameState.elapsedTime * bobFrequency) % (Math.PI * 2);
+      const bobAmount = Math.sin(bobProgress) * 2; // 2px vertical bob with sine easing
 
       // Shadow positioning
       const shadowX = obs.pixelX + CONFIG.GRID_SIZE / 2 + shake.x;
@@ -1389,11 +1433,7 @@ const main = (debug: boolean = false): void => {
         instructionX,
         instructionY + 40
       );
-      ctx.fillText(
-        '• Don\'t miss the notes!',
-        instructionX,
-        instructionY + 58
-      );
+      ctx.fillText("• Don't miss the notes!", instructionX, instructionY + 58);
     }
 
     if (debug) {
