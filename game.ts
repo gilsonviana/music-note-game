@@ -52,6 +52,7 @@ interface Config {
   ENABLE_X_AXIS_MOVEMENT: boolean;
   BPM: number;
   STAFF_POSITIONS: number;
+  DEBUG: boolean;
 }
 
 interface NoteKeyMap {
@@ -327,6 +328,7 @@ const main = (debug: boolean = false): void => {
     ENABLE_X_AXIS_MOVEMENT: false,
     BPM: 90,
     STAFF_POSITIONS: 9,
+    DEBUG: debug,
   };
 
   // Global tempo reference for musical timing
@@ -740,6 +742,16 @@ const main = (debug: boolean = false): void => {
         obs.fadeAnimation.start();
         playerAnimation.start();
         hitZoneFlash.start('green');
+      }
+
+      // Debug mode: auto-award points without requiring collision
+      if (CONFIG.DEBUG && !obs.hasCollided && !obs.hasBeenAvoided) {
+        const trebleClefEndX = trebleClef.x + trebleClef.width;
+        if (obs.pixelX <= trebleClefEndX && obs.pixelX + CONFIG.GRID_SIZE >= trebleClefEndX) {
+          obs.hasCollided = true;
+          score.addPoints(CONFIG.COLLISION_POINTS_GAINED);
+          obs.fadeAnimation.start();
+        }
       }
     });
   };
@@ -1836,7 +1848,13 @@ const main = (debug: boolean = false): void => {
 };
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => main());
+  document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const debugMode = urlParams.get('debug') === 'true';
+    main(debugMode);
+  });
 } else {
-  main();
+  const urlParams = new URLSearchParams(window.location.search);
+  const debugMode = urlParams.get('debug') === 'true';
+  main(debugMode);
 }
