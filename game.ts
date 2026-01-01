@@ -70,6 +70,7 @@ interface Lives {
   current: number;
   max: number;
   loseLife(): boolean;
+  recoverLife(): void;
   checkMiss(
     obstacle: ObstacleGenerator,
     playerX: number,
@@ -400,6 +401,11 @@ const main = (debug: boolean = false): void => {
       }
       return this.isGameOver();
     },
+    recoverLife(this: Lives): void {
+      if (this.current < this.max) {
+        this.current += 1;
+      }
+    },
     checkMiss(
       this: Lives,
       obstacle: ObstacleGenerator,
@@ -461,7 +467,7 @@ const main = (debug: boolean = false): void => {
    * Calculate difficulty level based on elapsed time
    */
   const calculateDifficulty = (elapsedTime: number): number => {
-    return Math.min(5, Math.floor(elapsedTime / 30) + 1);
+    return Math.min(10, Math.floor(elapsedTime / 15) + 1);
   };
 
   /**
@@ -475,7 +481,35 @@ const main = (debug: boolean = false): void => {
    * Get the current obstacle speed based on difficulty
    */
   const getObstacleSpeed = (difficulty: number): number => {
-    return 150 + (difficulty - 1) * 30;
+    return 150 + (difficulty - 1) * 50;
+  };
+
+  /**
+   * Get score multiplier based on note value (smaller notes = higher multiplier)
+   */
+  const getNoteValueMultiplier = (
+    noteValue: 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'
+  ): number => {
+    const multipliers = {
+      whole: 1.0,
+      half: 1.2,
+      quarter: 1.4,
+      eighth: 1.6,
+      sixteenth: 2.0,
+    };
+    return multipliers[noteValue];
+  };
+
+  /**
+   * Get points to award based on current difficulty level and note value
+   */
+  const getPointsForHit = (
+    difficulty: number,
+    noteValue: 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth'
+  ): number => {
+    const basePoints = CONFIG.COLLISION_POINTS_GAINED + (difficulty - 1) * 25;
+    const multiplier = getNoteValueMultiplier(noteValue);
+    return Math.round(basePoints * multiplier);
   };
 
   /**
@@ -736,7 +770,7 @@ const main = (debug: boolean = false): void => {
 
       if (collision && !obs.hasCollided) {
         obs.hasCollided = true;
-        score.addPoints(CONFIG.COLLISION_POINTS_GAINED);
+        score.addPoints(getPointsForHit(gameState.difficulty, player.noteValue));
         audio.playNote(obs.pixelY);
         noteDisplay.show(obs.pixelY);
         obs.fadeAnimation.start();
@@ -749,7 +783,7 @@ const main = (debug: boolean = false): void => {
         const trebleClefEndX = trebleClef.x + trebleClef.width;
         if (obs.pixelX <= trebleClefEndX && obs.pixelX + CONFIG.GRID_SIZE >= trebleClefEndX) {
           obs.hasCollided = true;
-          score.addPoints(CONFIG.COLLISION_POINTS_GAINED);
+          score.addPoints(getPointsForHit(gameState.difficulty, player.noteValue));
           obs.fadeAnimation.start();
         }
       }
@@ -855,6 +889,12 @@ const main = (debug: boolean = false): void => {
     if (gameState.hasStarted && !gameState.isGameOver) {
       gameState.elapsedTime += delta;
       const newDifficulty = calculateDifficulty(gameState.elapsedTime);
+
+      // Award life when leveling up
+      if (newDifficulty > gameState.difficulty) {
+        lives.recoverLife();
+      }
+
       gameState.difficulty = newDifficulty;
     }
 
@@ -1516,7 +1556,7 @@ const main = (debug: boolean = false): void => {
         obs.hasCollided = true;
         hitCorrectNote = true;
 
-        score.addPoints(CONFIG.COLLISION_POINTS_GAINED);
+        score.addPoints(getPointsForHit(gameState.difficulty, player.noteValue));
         audio.playNote(obs.pixelY);
         noteDisplay.show(obs.pixelY);
         obs.fadeAnimation.start();
